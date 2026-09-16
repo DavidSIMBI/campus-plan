@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CampusPlan | Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="css/style.css">
+</head>
+<body data-page="dashboard">
+  <header class="site-header">
+    <a class="brand" href="index.html">Campus<span>Plan</span></a>
+    <button class="menu-toggle" aria-label="Open navigation" aria-expanded="false">&#9776;</button>
+    <nav class="main-nav" aria-label="Main navigation"><a class="active" href="index.html">Dashboard</a><a href="assignments.html">Assignments</a><a href="tests.html">Tests &amp; Exams</a><a href="presentations.html">Presentations</a><a href="timetable.html">Timetable</a><a href="messages.html">Messages</a><a href="groups.html">Groups</a></nav>
+    <button class="profile" aria-label="Open profile menu"><span class="avatar">DN</span><span class="profile-name">David N.</span><span>&#8964;</span></button>
+  </header>
+  <main class="page-shell">
+    <section class="welcome"><div><p class="eyebrow">STUDENT DASHBOARD</p><h1>Good morning, <span id="student-name">David</span> <span aria-hidden="true">&#128075;</span></h1><p>Here is what you need to focus on today.</p></div><a class="button" href="assignments.html">Manage assignments</a></section>
+    <section class="summary-grid four-stats" aria-label="Academic overview">
+      <article class="summary-card accent-blue"><span class="stat-icon">&#128218;</span><div><span>Pending Assignments</span><strong id="pending-count">0</strong><small>Tasks to complete</small></div></article>
+      <article class="summary-card accent-orange"><span class="stat-icon">&#129514;</span><div><span>Upcoming Tests</span><strong id="test-count">0</strong><small>Plan your revision</small></div></article>
+      <article class="summary-card accent-purple"><span class="stat-icon">&#127908;</span><div><span>Presentations</span><strong id="presentation-count">0</strong><small>In your schedule</small></div></article>
+      <article class="summary-card accent-green"><span class="stat-icon">&#9989;</span><div><span>Completed Tasks</span><strong id="completed-count">0</strong><small>Great work, David</small></div></article>
+    </section>
+    <section class="dashboard-grid">
+      <div class="content-column">
+        <section class="panel"><div class="panel-heading"><div><h2>Upcoming</h2><p>Your nearest academic deadlines.</p></div><a href="assignments.html">See all</a></div><div class="task-list" id="dashboard-upcoming"></div></section>
+        <section class="panel"><div class="panel-heading"><div><h2>Today's schedule</h2><p>Your classes for today.</p></div><a href="timetable.html">Full timetable</a></div>
+          <div class="schedule-list"><article class="schedule current"><time>08:00</time><div><h3>Database Design</h3><p>Room B12</p></div><span>Now</span></article><article class="schedule"><time>10:00</time><div><h3>Local Area Networking</h3><p>Room C04</p></div></article><article class="schedule"><time>14:00</time><div><h3>Probability &amp; Statistics</h3><p>Room A15</p></div></article></div>
+        </section>
+      </div>
+      <aside class="side-column">
+        <section class="panel compact" id="progress"><div class="panel-heading"><h2>Academic progress</h2><a href="assignments.html">View tasks</a></div><div class="progress-circle"><strong id="progress-percent">0%</strong><span>completed</span></div><p class="progress-summary" id="progress-summary">No assignments yet</p><div class="progress-bar green"><i id="progress-fill" style="width:0%"></i></div></section>
+        <section class="panel compact"><div class="panel-heading"><h2>Coming up</h2><a href="tests.html">View all</a></div><div id="dashboard-events"></div></section>
+        <section class="panel compact"><div class="panel-heading"><h2>Recent messages</h2><a href="messages.html">Open inbox</a></div><article class="message-preview"><span class="avatar violet">JK</span><div><h3>James K.</h3><p>I've added my section to the slides.</p></div></article><article class="message-preview"><span class="avatar green-avatar">SG</span><div><h3>Statistics Study Group</h3><p>Are we meeting after class?</p></div></article></section>
+      </aside>
+    </section>
+  </main><script src="js/script.js"></script>
+</body></html>
