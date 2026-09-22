@@ -41,7 +41,7 @@
               type="search"
               placeholder="Search Sarah, John..."
           /></label>
-          <div id="student-results" class="student-results"></div>
+          <div id="student-results" class="student-results" aria-live="polite"></div>
           <div id="conversation-list"></div>
         </aside>
         <section class="chat-window" id="private-chat">
@@ -50,15 +50,16 @@
             ><span class="avatar" id="chat-avatar">SM</span>
             <div>
               <h2 id="chat-name">Sarah M.</h2>
-              <p><i></i> Online</p>
+              <p><i></i> <span id="chat-status">CampusPlan student</span></p>
             </div>
+            <button class="text-button chat-action" id="clear-conversation" type="button">
+              Clear
+            </button>
           </header>
           <div class="chat-messages" id="private-messages"></div>
           <form class="chat-compose" id="private-form">
-            <input id="private-input" placeholder="Write a message..." /><button
-              class="send-button"
-            >
-              Send
+            <input id="private-input" autocomplete="off" placeholder="Write a message..." aria-label="Message text" /><button class="send-button" type="submit" aria-label="Send message">
+              &#10148;
             </button>
           </form>
         </section>

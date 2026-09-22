@@ -40,10 +40,14 @@
       <section class="group-grid" id="communities"></section>
       <section class="panel group-chat" id="group-chat" hidden>
         <header class="chat-header">
+          <button class="back-button" id="group-back" type="button">←</button>
+          <span class="avatar group-avatar">CP</span>
           <div>
             <h2 id="group-name"></h2>
             <p id="group-description"></p>
+            <small id="group-member-count"></small>
           </div>
+          <button class="text-button chat-action" id="group-info-toggle" type="button">Group info</button>
         </header>
         <div class="group-content">
           <div>
@@ -52,10 +56,20 @@
               <input
                 id="group-input"
                 placeholder="Message this group..."
-              /><button class="send-button">Send</button>
+              ><button class="send-button" type="submit" aria-label="Send group message">&#10148;</button>
             </form>
           </div>
-          <aside class="members">
+          <aside class="members" id="group-info" hidden>
+            <h3>Group information</h3>
+            <label class="group-edit-field">Group photo<input id="group-photo-input" type="file" accept="image/png,image/jpeg,image/gif,image/webp" /></label>
+            <label class="group-edit-field">Group name<input id="group-edit-name" /></label>
+            <label class="group-edit-field">Description<textarea id="group-edit-description" rows="2"></textarea></label>
+            <button class="button small" id="group-save-info" type="button">Save group details</button>
+            <div class="group-member-tools">
+              <label class="group-edit-field">Add member<select id="group-add-member"></select></label>
+              <button class="text-button" id="group-add-member-button" type="button">Add</button>
+            </div>
+            <button class="text-button danger" id="group-leave" type="button">Leave group</button>
             <h3>Members</h3>
             <div id="member-list"></div>
           </aside>

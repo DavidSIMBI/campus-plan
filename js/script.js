@@ -122,6 +122,64 @@ function esc(x) {
       })[c],
   );
 }
+function initials(name) {
+  return String(name || "Student")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
+function getUserProfile(studentId) {
+  const session = currentUser();
+  if (session && session.studentId === studentId) return session;
+  const users = JSON.parse(localStorage.getItem(USER_KEY) || "[]");
+  const saved = users.find((user) => user.studentId === studentId);
+  if (saved) return saved;
+  return students.find((student) => student.studentId === studentId) || null;
+}
+function avatarMarkup(studentId, extraClass) {
+  const profile = getUserProfile(studentId) || {};
+  const className = ["avatar", extraClass || ""].filter(Boolean).join(" ");
+  if (String(studentId).startsWith("group:")) {
+    return '<span class="' + className + ' group-avatar" aria-label="Group">CP</span>';
+  }
+  return profile.photo
+    ? '<img class="' +
+        className +
+        ' avatar-photo" src="' +
+        esc(profile.photo) +
+        '" alt="' +
+        esc(profile.name || "Student") +
+        ' profile photo">'
+    : '<span class="' +
+        className +
+        '" aria-label="' +
+        esc(profile.name || "Student") +
+        '">' +
+        esc(initials(profile.name)) +
+        "</span>";
+}
+function groupAvatarMarkup(group, extraClass) {
+  const className = ["avatar", "group-avatar", extraClass || ""]
+    .filter(Boolean)
+    .join(" ");
+  return group.photo
+    ? '<img class="' +
+        className +
+        ' avatar-photo" src="' +
+        esc(group.photo) +
+        '" alt="' +
+        esc(group.name) +
+        ' group photo">'
+    : '<span class="' + className + '" aria-label="Group">CP</span>';
+}
+function formatMessageTime(value) {
+  const messageDate = new Date(value);
+  if (Number.isNaN(messageDate.getTime())) return "";
+  return messageDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
 function date(x) {
   return new Intl.DateTimeFormat("en", {
     day: "numeric",
@@ -506,10 +564,34 @@ function commSave(key, x) {
   );
 }
 const students = [
-  { id: "sarah", name: "Sarah M.", course: "BSIT Year 1", avatar: "SM" },
-  { id: "john", name: "John K.", course: "BSIT Year 1", avatar: "JK" },
-  { id: "michael", name: "Michael O.", course: "BSIT Year 1", avatar: "MO" },
-  { id: "grace", name: "Grace N.", course: "BSIT Year 1", avatar: "GN" },
+  {
+    studentId: "sarah-m",
+    name: "Sarah M.",
+    email: "sarah@example.com",
+    program: "BSIT",
+    year: "Year 1",
+  },
+  {
+    studentId: "john-k",
+    name: "John K.",
+    email: "john@example.com",
+    program: "BSIT",
+    year: "Year 1",
+  },
+  {
+    studentId: "michael-o",
+    name: "Michael O.",
+    email: "michael@example.com",
+    program: "BSIT",
+    year: "Year 1",
+  },
+  {
+    studentId: "grace-n",
+    name: "Grace N.",
+    email: "grace@example.com",
+    program: "BSIT",
+    year: "Year 1",
+  },
 ];
 function setupMessages() {
   if (document.body.dataset.page !== "messages") return;
@@ -648,6 +730,400 @@ function setupMessages() {
   document.getElementById("back-to-list").onclick = () =>
     document.getElementById("private-chat").classList.remove("mobile-open");
 }
+function syncCommunicationNotifications(conversations, groups) {
+  const notifications = getNotifications();
+  const existing = new Set(
+    notifications.map((notification) => notification.eventKey),
+  );
+  const next = [...notifications];
+  const add = (eventKey, title, message, type) => {
+    if (existing.has(eventKey)) return;
+    next.push({
+      id: "notification-" + Date.now() + Math.random().toString(16).slice(2),
+      eventKey,
+      title,
+      message,
+      type,
+      read: false,
+      createdAt: new Date().toISOString(),
+    });
+    existing.add(eventKey);
+  };
+  conversations.forEach((conversation) => {
+    conversation.messages
+      .filter((message) => message.senderId !== currentUser().studentId && !message.read)
+      .forEach((message) => {
+        const sender = getUserProfile(message.senderId);
+        add(
+          "message:" + conversation.id + ":" + message.id,
+          sender ? sender.name : "New message",
+          message.text,
+          "Message",
+        );
+      });
+  });
+  groups.forEach((group) => {
+    group.messages
+      .filter((message) => message.senderId !== currentUser().studentId && !message.read)
+      .forEach((message) => {
+        add(
+          "group:" + group.id + ":" + message.id,
+          group.name,
+          message.text,
+          "Group message",
+        );
+      });
+  });
+  saveNotifications(next);
+}
+function markCommunicationNotificationsRead(eventKeys) {
+  const keys = new Set(eventKeys);
+  const notifications = getNotifications().map((notification) =>
+    keys.has(notification.eventKey) ? { ...notification, read: true } : notification,
+  );
+  saveNotifications(notifications);
+}
+
+function setupMessagesV2() {
+  if (document.body.dataset.page !== "messages") return;
+  const me = currentUser();
+  const oldKey = userKey("campusplan-chats");
+  const storageKey = userKey("campusplan-conversations");
+  let saved = localStorage.getItem(storageKey);
+  let conversations = saved ? JSON.parse(saved) : null;
+  if (!conversations) {
+    const oldChats = JSON.parse(localStorage.getItem(oldKey) || "[]");
+    conversations = oldChats.map((chat) => ({
+      id: "conversation-" + chat.id,
+      participantId: chat.id === "sarah" ? "sarah-m" : chat.id,
+      messages: (chat.messages || []).map((message, index) => ({
+        id: "legacy-message-" + index,
+        senderId: message.from === "David" ? me.studentId : "sarah-m",
+        conversationId: "conversation-" + chat.id,
+        text: message.text,
+        timestamp: new Date().toISOString(),
+        read: !chat.unread,
+      })),
+    }));
+  }
+  if (!conversations.length) conversations = [];
+  let activeId = conversations[0] ? conversations[0].id : null;
+  const list = document.getElementById("conversation-list");
+  const search = document.getElementById("student-search");
+  const results = document.getElementById("student-results");
+
+  function save() {
+    localStorage.setItem(storageKey, JSON.stringify(conversations));
+  }
+  function participant(conversation) {
+    return getUserProfile(conversation.participantId) || {
+      name: "Student",
+      studentId: conversation.participantId,
+    };
+  }
+  function renderList() {
+    const query = search.value.trim().toLowerCase();
+    const visible = conversations.filter((conversation) => {
+      const profile = participant(conversation);
+      return (profile.name + " " + profile.studentId)
+        .toLowerCase()
+        .includes(query);
+    });
+    list.innerHTML = visible.length
+      ? visible
+          .map((conversation) => {
+            const profile = participant(conversation);
+            const last = conversation.messages[conversation.messages.length - 1];
+            const unread = conversation.messages.filter(
+              (message) => message.senderId !== me.studentId && !message.read,
+            ).length;
+            return (
+              '<article class="conversation ' +
+              (conversation.id === activeId ? "active" : "") +
+              '" data-conversation-id="' +
+              conversation.id +
+              '">' +
+              avatarMarkup(profile.studentId) +
+              '<div class="conversation-copy"><h3>' +
+              esc(profile.name) +
+              '</h3><p>' +
+              esc(last ? last.text : "No messages yet") +
+              '</p></div><div class="conversation-meta"><time>' +
+              (last ? formatMessageTime(last.timestamp) : "") +
+              '</time>' +
+              (unread ? '<b class="unread" aria-label="' + unread + ' unread">' + unread + "</b>" : "") +
+              '</div><button class="conversation-delete" data-delete-conversation="' +
+              conversation.id +
+              '" aria-label="Delete conversation">&times;</button></article>'
+            );
+          })
+          .join("")
+      : '<p class="empty-state">No conversations found.</p>';
+  }
+  function renderChat() {
+    const chat = document.getElementById("private-chat");
+    const conversation = conversations.find((item) => item.id === activeId);
+    if (!conversation) {
+      chat.classList.remove("has-conversation");
+      document.getElementById("private-messages").innerHTML =
+        '<p class="empty-state chat-empty">Select a student to start messaging.</p>';
+      return;
+    }
+    chat.classList.add("has-conversation");
+    const profile = participant(conversation);
+    const chatAvatar = avatarMarkup(profile.studentId).replace(
+      /<(img|span) /,
+      '<$1 id="chat-avatar" ',
+    );
+    document.getElementById("chat-avatar").outerHTML = chatAvatar;
+    document.getElementById("chat-name").textContent = profile.name;
+    document.getElementById("chat-status").textContent = "CampusPlan student";
+    const messageList = document.getElementById("private-messages");
+    messageList.innerHTML = conversation.messages.length
+      ? conversation.messages
+          .map(
+            (message) =>
+              '<div class="message-row ' +
+              (message.senderId === me.studentId ? "sent-row" : "received-row") +
+              '">' +
+              avatarMarkup(message.senderId) +
+              '<div class="bubble ' +
+              (message.senderId === me.studentId ? "sent" : "received") +
+              '"><span>' +
+              esc(message.text) +
+              '</span><time>' +
+              formatMessageTime(message.timestamp) +
+              (message.senderId === me.studentId ? (message.read ? " · Read" : " · Sent") : "") +
+              "</time></div></div>",
+          )
+          .join("")
+      : '<p class="empty-state chat-empty">No messages yet. Start the conversation.</p>';
+    const readKeys = conversation.messages
+      .filter((message) => message.senderId !== me.studentId && !message.read)
+      .map((message) => "message:" + conversation.id + ":" + message.id);
+    conversation.messages.forEach((message) => {
+      if (message.senderId !== me.studentId) message.read = true;
+    });
+    markCommunicationNotificationsRead(readKeys);
+    save();
+    renderList();
+    renderNotificationList();
+  }
+  function openConversation(participantId) {
+    let conversation = conversations.find((item) => item.participantId === participantId);
+    if (!conversation) {
+      conversation = {
+        id: "conversation-" + me.studentId + "-" + participantId,
+        participantId,
+        messages: [],
+      };
+      conversations.push(conversation);
+    }
+    activeId = conversation.id;
+    renderList();
+    renderChat();
+    document.getElementById("private-chat").classList.add("mobile-open");
+  }
+  function renderSearchResults() {
+    const query = search.value.trim().toLowerCase();
+    if (!query) {
+      results.innerHTML = "";
+      return;
+    }
+    const people = students
+      .filter((student) => student.studentId !== me.studentId)
+      .filter((student) =>
+        (student.name + " " + student.studentId + " " + student.email)
+          .toLowerCase()
+          .includes(query),
+      );
+    results.innerHTML = people.length
+      ? people
+          .map(
+            (student) =>
+              '<button class="student-result" type="button" data-start="' +
+              student.studentId +
+              '">' +
+              avatarMarkup(student.studentId) +
+              '<span><b>' +
+              esc(student.name) +
+              '</b><small>' +
+              esc(student.studentId + " · " + student.program + " · " + student.year) +
+              "</small></span></button>",
+          )
+          .join("")
+      : '<p class="empty-state">No students found.</p>';
+  }
+  search.oninput = () => {
+    renderSearchResults();
+    renderList();
+  };
+  results.onclick = (event) => {
+    const button = event.target.closest("[data-start]");
+    if (button) openConversation(button.dataset.start);
+  };
+  list.onclick = (event) => {
+    const deleteButton = event.target.closest("[data-delete-conversation]");
+    if (deleteButton) {
+      conversations = conversations.filter((item) => item.id !== deleteButton.dataset.deleteConversation);
+      if (activeId === deleteButton.dataset.deleteConversation) activeId = null;
+      save();
+      renderList();
+      renderChat();
+      return;
+    }
+    const item = event.target.closest("[data-conversation-id]");
+    if (item) openConversation(participant(conversations.find((conversation) => conversation.id === item.dataset.conversationId)).studentId);
+  };
+  document.getElementById("private-form").onsubmit = (event) => {
+    event.preventDefault();
+    const input = document.getElementById("private-input");
+    const text = input.value.trim();
+    const conversation = conversations.find((item) => item.id === activeId);
+    if (!conversation || !text) return;
+    conversation.messages.push({
+      id: "message-" + Date.now(),
+      senderId: me.studentId,
+      conversationId: conversation.id,
+      text,
+      timestamp: new Date().toISOString(),
+      read: true,
+    });
+    input.value = "";
+    save();
+    renderChat();
+  };
+  document.getElementById("back-to-list").onclick = () =>
+    document.getElementById("private-chat").classList.remove("mobile-open");
+  document.getElementById("clear-conversation").onclick = () => {
+    const conversation = conversations.find((item) => item.id === activeId);
+    if (conversation) conversation.messages = [];
+    save();
+    renderChat();
+  };
+  syncCommunicationNotifications(conversations, []);
+  renderList();
+  renderChat();
+}
+
+function setupGroupsV2() {
+  if (document.body.dataset.page !== "groups") return;
+  const me = currentUser();
+  const storageKey = userKey("campusplan-groups");
+  let groups = JSON.parse(localStorage.getItem(storageKey) || "null");
+  if (!groups) {
+    groups = [
+      { id: "g1", name: "Database Study Group", course: "Database Design", type: "Study Group", description: "Revision and assignment support.", createdBy: me.studentId, members: [me.studentId, "sarah-m", "john-k"], messages: [{ id: "gm1", senderId: "sarah-m", text: "Who is preparing the ERD?", timestamp: new Date().toISOString(), read: false }] },
+      { id: "g2", name: "Networking Presentation", course: "Local Area Networking", type: "Presentation Group", description: "Planning the network layer presentation.", createdBy: me.studentId, members: [me.studentId, "sarah-m", "michael-o"], messages: [] },
+      { id: "g3", name: "Statistics Study Group", course: "Probability & Statistics", type: "Study Group", description: "Weekly practice and test revision.", createdBy: me.studentId, members: [me.studentId, "grace-n"], messages: [] },
+    ];
+  }
+  groups = groups.map((group) => ({
+    ...group,
+    createdBy: group.createdBy || me.studentId,
+    members: (group.members || []).map((member) => typeof member === "string" && member.includes("—") ? me.studentId : member),
+    messages: (group.messages || []).map((message, index) => typeof message === "string" ? { id: "legacy-group-message-" + index, senderId: "sarah-m", text: message, timestamp: new Date().toISOString(), read: false } : message),
+  }));
+  let activeId = groups[0] ? groups[0].id : null;
+  function save() { localStorage.setItem(storageKey, JSON.stringify(groups)); }
+  function renderCards() {
+    ["private-groups", "communities"].forEach((id) => {
+      const community = id === "communities";
+      document.getElementById(id).innerHTML = groups
+        .filter((group) => (group.type === "Course Community") === community)
+        .map((group) => {
+          const last = group.messages[group.messages.length - 1];
+          const unread = group.messages.filter((message) => message.senderId !== me.studentId && !message.read).length;
+          return '<article class="group-card"><div class="group-card-top">' + groupAvatarMarkup(group) + '<div><h2>' + esc(group.name) + '</h2><p>' + esc(group.description) + '</p></div></div><div class="group-card-meta"><span>' + esc(group.course) + " · " + group.members.length + " members</span><span>" + (last ? esc(formatMessageTime(last.timestamp)) : "No messages") + (unread ? ' <b class="unread">' + unread + "</b>" : "") + '</span></div><p class="group-last-message">' + esc(last ? last.text : "Start collaborating with your group") + '</p><button class="button small" data-group="' + group.id + '">Open group</button></article>';
+        }).join("") || '<p class="empty-state">No groups yet.</p>';
+    });
+  }
+  function renderGroup() {
+    const group = groups.find((item) => item.id === activeId);
+    if (!group) return;
+    document.querySelector("#group-chat .group-avatar").outerHTML = groupAvatarMarkup(group).replace(
+      /<(img|span) /,
+      '<$1 class="avatar group-avatar" ',
+    );
+    document.getElementById("group-name").textContent = group.name;
+    document.getElementById("group-description").textContent = group.description;
+    document.getElementById("group-member-count").textContent = group.members.length + " members";
+    document.getElementById("group-edit-name").value = group.name;
+    document.getElementById("group-edit-description").value = group.description;
+    document.getElementById("group-add-member").innerHTML = students
+      .filter((student) => !group.members.includes(student.studentId))
+      .map((student) => '<option value="' + student.studentId + '">' + esc(student.name) + "</option>")
+      .join("");
+    document.getElementById("group-messages").innerHTML = group.messages.length ? group.messages.map((message) => '<div class="message-row ' + (message.senderId === me.studentId ? "sent-row" : "received-row") + '">' + avatarMarkup(message.senderId) + '<div class="bubble ' + (message.senderId === me.studentId ? "sent" : "received") + '"><b class="message-sender">' + esc((getUserProfile(message.senderId) || {}).name || "Student") + '</b><span>' + esc(message.text) + '</span><time>' + formatMessageTime(message.timestamp) + '</time></div></div>').join("") : '<p class="empty-state chat-empty">No group messages yet.</p>';
+    const readKeys = group.messages
+      .filter((message) => message.senderId !== me.studentId && !message.read)
+      .map((message) => "group:" + group.id + ":" + message.id);
+    group.messages.forEach((message) => { if (message.senderId !== me.studentId) message.read = true; });
+    markCommunicationNotificationsRead(readKeys);
+    document.getElementById("member-list").innerHTML = group.members.map((memberId) => '<div class="member">' + avatarMarkup(memberId) + '<span>' + esc((getUserProfile(memberId) || {}).name || memberId) + '</span><small>' + (memberId === group.createdBy ? "Admin" : "Member") + '</small>' + (group.createdBy === me.studentId && memberId !== me.studentId ? '<button class="text-button danger" data-remove-member="' + memberId + '">Remove</button>' : "") + '</div>').join("");
+    save();
+    renderCards();
+    renderNotificationList();
+  }
+  ["private-groups", "communities"].forEach((id) => {
+    document.getElementById(id).onclick = (event) => {
+      const button = event.target.closest("[data-group]");
+      if (!button) return;
+      activeId = button.dataset.group;
+      document.getElementById("group-chat").hidden = false;
+      renderGroup();
+      document.getElementById("group-chat").scrollIntoView({ behavior: "smooth" });
+    };
+  });
+  document.getElementById("group-form").onsubmit = (event) => { event.preventDefault(); const input = document.getElementById("group-input"); const text = input.value.trim(); const group = groups.find((item) => item.id === activeId); if (!group || !text) return; group.messages.push({ id: "group-message-" + Date.now(), senderId: me.studentId, text, timestamp: new Date().toISOString(), read: true }); input.value = ""; renderGroup(); };
+  document.getElementById("group-info-toggle").onclick = () => document.getElementById("group-info").hidden = !document.getElementById("group-info").hidden;
+  document.getElementById("group-back").onclick = () => document.getElementById("group-chat").hidden = true;
+  document.getElementById("group-save-info").onclick = () => {
+    const group = groups.find((item) => item.id === activeId);
+    if (!group || group.createdBy !== me.studentId) return;
+    group.name = document.getElementById("group-edit-name").value.trim() || group.name;
+    group.description = document.getElementById("group-edit-description").value.trim() || group.description;
+    save();
+    renderGroup();
+  };
+  document.getElementById("group-photo-input").onchange = () => {
+    const group = groups.find((item) => item.id === activeId);
+    const file = document.getElementById("group-photo-input").files[0];
+    if (!group || group.createdBy !== me.studentId || !file) return;
+    if (!file.type.startsWith("image/") || file.size > 2 * 1024 * 1024) {
+      document.getElementById("group-photo-input").value = "";
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      group.photo = reader.result;
+      save();
+      renderGroup();
+    };
+    reader.readAsDataURL(file);
+  };
+  document.getElementById("group-add-member-button").onclick = () => {
+    const group = groups.find((item) => item.id === activeId);
+    const memberId = document.getElementById("group-add-member").value;
+    if (!group || group.createdBy !== me.studentId || !memberId) return;
+    group.members.push(memberId);
+    save();
+    renderGroup();
+  };
+  document.getElementById("group-leave").onclick = () => {
+    const group = groups.find((item) => item.id === activeId);
+    if (!group || group.createdBy === me.studentId) return;
+    group.members = group.members.filter((member) => member !== me.studentId);
+    save();
+    document.getElementById("group-chat").hidden = true;
+    renderCards();
+  };
+  document.getElementById("member-list").onclick = (event) => { const button = event.target.closest("[data-remove-member]"); if (!button) return; const group = groups.find((item) => item.id === activeId); group.members = group.members.filter((member) => member !== button.dataset.removeMember); renderGroup(); };
+  document.getElementById("group-create-form").onsubmit = (event) => { event.preventDefault(); groups.push({ id: "g" + Date.now(), name: document.getElementById("group-title").value.trim(), course: document.getElementById("group-course").value.trim(), type: document.getElementById("group-type").value, description: document.getElementById("group-description-input").value.trim(), createdBy: me.studentId, members: [me.studentId], messages: [] }); save(); event.target.reset(); document.getElementById("group-modal").hidden = true; renderCards(); };
+  syncCommunicationNotifications([], groups);
+  renderCards();
+}
+
 function setupGroups() {
   if (document.body.dataset.page !== "groups") return;
   let groups = commData("campusplan-groups", [
@@ -886,13 +1362,8 @@ function setupAuth() {
   if (user) {
     document.querySelectorAll(".profile").forEach((button) => {
       button.innerHTML =
-        '<span class="avatar">' +
-        user.name
-          .split(" ")
-          .map((x) => x[0])
-          .join("")
-          .slice(0, 2) +
-        '</span><span class="profile-name">' +
+        avatarMarkup(user.studentId) +
+        '<span class="profile-name">' +
         esc(user.name) +
         " &#8964;</span>";
       button.onclick = () => {
@@ -918,6 +1389,54 @@ function setupAuth() {
   }
 
   if (document.body.dataset.page === "profile") {
+    const profilePhoto = document.getElementById("profile-photo");
+    const photoInput = document.getElementById("profile-photo-input");
+    const removePhoto = document.getElementById("remove-profile-photo");
+    const setPhotoPreview = (photo) => {
+      profilePhoto.innerHTML = avatarMarkup(user.studentId, "profile-avatar");
+      if (photo) profilePhoto.dataset.hasPhoto = "true";
+      else delete profilePhoto.dataset.hasPhoto;
+    };
+    setPhotoPreview(user.photo);
+    if (photoInput) {
+      photoInput.onchange = () => {
+        const file = photoInput.files[0];
+        if (!file) return;
+        if (!file.type.startsWith("image/") || file.size > 2 * 1024 * 1024) {
+          document.getElementById("profile-notice").textContent =
+            "Choose an image file smaller than 2 MB.";
+          photoInput.value = "";
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+          user.photo = reader.result;
+          localStorage.setItem(SESSION_KEY, JSON.stringify(user));
+          const users = JSON.parse(localStorage.getItem(USER_KEY) || "[]").map(
+            (savedUser) => savedUser.studentId === user.studentId ? user : savedUser,
+          );
+          localStorage.setItem(USER_KEY, JSON.stringify(users));
+          setPhotoPreview(user.photo);
+          document.getElementById("profile-notice").textContent =
+            "Profile photo updated.";
+        };
+        reader.readAsDataURL(file);
+      };
+    }
+    if (removePhoto) {
+      removePhoto.onclick = () => {
+        delete user.photo;
+        localStorage.setItem(SESSION_KEY, JSON.stringify(user));
+        const users = JSON.parse(localStorage.getItem(USER_KEY) || "[]").map(
+          (savedUser) => savedUser.studentId === user.studentId ? user : savedUser,
+        );
+        localStorage.setItem(USER_KEY, JSON.stringify(users));
+        setPhotoPreview();
+        if (photoInput) photoInput.value = "";
+        document.getElementById("profile-notice").textContent =
+          "Profile photo removed.";
+      };
+    }
     ["name", "email", "institution", "program", "year"].forEach(
       (k) => (document.getElementById("profile-" + k).value = user[k]),
     );
@@ -1579,7 +2098,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupTests();
   setupPresentations();
   dashboard();
-  setupMessages();
-  setupGroups();
+  setupMessagesV2();
+  setupGroupsV2();
   setupReminderAndCalendar();
 });
