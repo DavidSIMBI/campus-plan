@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Calendar | CampusPlan</title>
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body data-page="calendar">
+    <header class="site-header">
+      <a class="brand" href="index.html">Campus<span>Plan</span></a>
+      <button class="menu-toggle" aria-label="Open navigation" aria-expanded="false">
+        &#9776;
+      </button>
+      <nav class="main-nav" aria-label="Main navigation">
+        <a href="index.html">Dashboard</a>
+        <a href="assignments.html">Assignments</a>
+        <a href="tests.html">Tests &amp; Exams</a>
+        <a href="presentations.html">Presentations</a>
+        <a href="timetable.html">Timetable</a>
+        <a class="active" href="calendar.html">Calendar</a>
+        <a href="messages.html">Messages</a>
+        <a href="groups.html">Groups</a>
+      </nav>
+      <button class="profile" aria-label="Open profile menu">
+        <span class="avatar">DN</span>
+        <span class="profile-name">David N.</span>
+        <span>&#8964;</span>
+      </button>
+    </header>
+
+    <main class="page-shell">
+      <section class="page-title">
+        <div>
+          <p class="eyebrow">ACADEMIC OVERVIEW</p>
+          <h1>Calendar</h1>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="calendar-toolbar">
+          <button class="button secondary" type="button" id="calendar-prev" aria-label="Previous month">
+            ← Previous
+          </button>
+          <button class="button" type="button" id="calendar-today">Today</button>
+          <button class="button secondary" type="button" id="calendar-next" aria-label="Next month">
+            Next →
+          </button>
+        </div>
+
+        <div class="calendar-month" id="calendar-month-label">September 2026</div>
+        <div id="calendar-current-month" hidden></div>
+
+        <div class="calendar-weekdays" aria-label="Weekdays">
+          <div class="calendar-weekday">Mon</div>
+          <div class="calendar-weekday">Tue</div>
+          <div class="calendar-weekday">Wed</div>
+          <div class="calendar-weekday">Thu</div>
+          <div class="calendar-weekday">Fri</div>
+          <div class="calendar-weekday">Sat</div>
+          <div class="calendar-weekday">Sun</div>
+        </div>
+
+        <div class="calendar-grid" id="calendar-grid" aria-live="polite"></div>
+
+        <div class="calendar-legends" aria-label="Calendar legends">
+          <span class="calendar-legend"><i style="background:#e9efff"></i> Assignment</span>
+          <span class="calendar-legend"><i style="background:#e1f6ee"></i> Test</span>
+          <span class="calendar-legend"><i style="background:#f0ebff"></i> Presentation</span>
+          <span class="calendar-legend"><i style="background:#fff4da"></i> Reminder</span>
+        </div>
+      </section>
+    </main>
+
+    <div class="modal" id="calendar-event-modal" hidden>
+      <div class="modal-backdrop" data-close-modal></div>
+      <section class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="calendar-event-title">
+        <button class="modal-close" aria-label="Close event details" data-close-modal>&times;</button>
+        <h2 id="calendar-event-title">Academic event</h2>
+        <dl class="presentation-details">
+          <div><dt>Type</dt><dd id="calendar-event-type">Assignment</dd></div>
+          <div><dt>Course</dt><dd id="calendar-event-course">Database Design</dd></div>
+          <div><dt>Date</dt><dd id="calendar-event-date">September 20</dd></div>
+          <div><dt>Time</dt><dd id="calendar-event-time">No time specified</dd></div>
+          <div><dt>Status</dt><dd id="calendar-event-status">In Progress</dd></div>
+          <div><dt>Priority</dt><dd id="calendar-event-priority">High</dd></div>
+        </dl>
+        <p id="calendar-event-description" class="empty-state"></p>
+      </section>
+    </div>
+
+    <script src="js/script.js"></script>
+  </body>
+</html>

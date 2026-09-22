@@ -805,6 +805,7 @@ function setupAuth() {
   const login = document.getElementById("login-form"),
     register = document.getElementById("register-form"),
     user = currentUser();
+
   if (login) {
     document.getElementById("login-notice").textContent = new URLSearchParams(
       location.search,
@@ -835,6 +836,7 @@ function setupAuth() {
     document.querySelector(".forgot-password").onclick = () =>
       alert("Password recovery will be implemented later.");
   }
+
   if (register) {
     register.onsubmit = (e) => {
       e.preventDefault();
@@ -880,6 +882,7 @@ function setupAuth() {
       setTimeout(() => (location.href = "login.html"), 800);
     };
   }
+
   if (user) {
     document.querySelectorAll(".profile").forEach((button) => {
       button.innerHTML =
@@ -909,9 +912,11 @@ function setupAuth() {
         };
       };
     });
+
     let name = document.getElementById("student-name");
     if (name) name.textContent = user.name.split(" ")[0];
   }
+
   if (document.body.dataset.page === "profile") {
     ["name", "email", "institution", "program", "year"].forEach(
       (k) => (document.getElementById("profile-" + k).value = user[k]),
@@ -937,16 +942,644 @@ function setupAuth() {
     };
   }
 }
+
+function addCalendarNavLink() {
+  document.querySelectorAll(".main-nav").forEach((nav) => {
+    const hasCalendar = Array.from(nav.querySelectorAll("a")).some(
+      (link) => link.getAttribute("href") === "calendar.html",
+    );
+    if (hasCalendar) return;
+
+    const calendarLink = document.createElement("a");
+    calendarLink.href = "calendar.html";
+    calendarLink.textContent = "Calendar";
+    if (document.body.dataset.page === "calendar") {
+      calendarLink.classList.add("active");
+    }
+
+    const timetableLink = nav.querySelector('a[href="timetable.html"]');
+    if (timetableLink) {
+      nav.insertBefore(calendarLink, timetableLink.nextSibling);
+    } else {
+      nav.appendChild(calendarLink);
+    }
+  });
+}
+
+function getReminderLevel(daysLeft) {
+  if (daysLeft > 7) return { label: "Upcoming", className: "upcoming" };
+  if (daysLeft >= 3) return { label: "Coming Soon", className: "coming-soon" };
+  if (daysLeft >= 1) return { label: "Due Soon", className: "due-soon" };
+  if (daysLeft === 0) return { label: "Due Today", className: "due-today" };
+  return { label: "Overdue", className: "overdue" };
+}
+
+function getDayDifference(targetDate) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(targetDate + "T12:00:00");
+  return Math.ceil((target - today) / 86400000);
+}
+
+function getReminders() {
+  const storageKey = userKey("campusplan-reminders");
+  const value = localStorage.getItem(storageKey);
+  if (value) return JSON.parse(value);
+  localStorage.setItem(storageKey, JSON.stringify([]));
+  return [];
+}
+
+function saveReminders(reminders) {
+  localStorage.setItem(
+    userKey("campusplan-reminders"),
+    JSON.stringify(reminders),
+  );
+}
+
+function getNotifications() {
+  const storageKey = userKey("campusplan-notifications");
+  const value = localStorage.getItem(storageKey);
+  if (value) return JSON.parse(value);
+  localStorage.setItem(storageKey, JSON.stringify([]));
+  return [];
+}
+
+function saveNotifications(notifications) {
+  localStorage.setItem(
+    userKey("campusplan-notifications"),
+    JSON.stringify(notifications),
+  );
+}
+
+function buildAcademicEventList() {
+  const assignmentEvents = get("assignments").map((item) => ({
+    id: "assignment-" + item.id,
+    title: item.title,
+    type: "Assignment",
+    course: item.course,
+    date: item.dueDate,
+    time: "",
+    description: item.description,
+    status: item.status,
+    priority: item.priority,
+    eventType: "assignment",
+  }));
+
+  const testEvents = get("tests").map((item) => ({
+    id: "test-" + item.id,
+    title: item.title,
+    type: "Test",
+    course: item.course,
+    date: item.date,
+    time: item.time,
+    description: item.room ? "Test in room " + item.room : "Academic test",
+    status: "Scheduled",
+    priority: "Medium",
+    eventType: "test",
+  }));
+
+  const presentationEvents = get("presentations").map((item) => ({
+    id: "presentation-" + item.id,
+    title: item.title,
+    type: "Presentation",
+    course: item.course,
+    date: item.date,
+    time: "",
+    description: item.part + " — " + item.group,
+    status: item.status,
+    priority: "Medium",
+    eventType: "presentation",
+  }));
+
+  const reminderEvents = getReminders().map((item) => ({
+    id: "reminder-" + item.id,
+    title: item.title,
+    type: "Reminder",
+    course: item.course || "Personal Reminder",
+    date: item.date,
+    time: item.time || "",
+    description: item.description || "Custom reminder",
+    status: "Reminder",
+    priority: item.priority || "Medium",
+    eventType: "reminder",
+  }));
+
+  return [...assignmentEvents, ...testEvents, ...presentationEvents, ...reminderEvents].sort(
+    (a, b) => a.date.localeCompare(b.date),
+  );
+}
+
+function generateAcademicNotifications() {
+  const notifications = getNotifications();
+  const seenKeys = new Set(notifications.map((item) => item.eventKey || item.id));
+  const next = [...notifications];
+  const events = buildAcademicEventList();
+
+  events.forEach((event) => {
+    const daysRemaining = getDayDifference(event.date);
+    if (daysRemaining < 0) return;
+
+    let message = "";
+
+    if (event.type === "Assignment") {
+      if (daysRemaining === 0) {
+        message = event.title + " is due today.";
+      } else if (daysRemaining === 1) {
+        message = event.title + " is due tomorrow.";
+      } else if (daysRemaining <= 7) {
+        message = event.title + " is due in " + daysRemaining + " days.";
+      }
+    }
+
+    if (event.type === "Test") {
+      if (daysRemaining === 0) {
+        message = event.title + " is today.";
+      } else if (daysRemaining === 1) {
+        message = event.title + " is tomorrow.";
+      } else if (daysRemaining <= 7) {
+        message = event.title + " is in " + daysRemaining + " days.";
+      }
+    }
+
+    if (event.type === "Presentation") {
+      if (daysRemaining === 0) {
+        message = event.title + " is scheduled for today.";
+      } else if (daysRemaining === 1) {
+        message = event.title + " is due tomorrow.";
+      } else if (daysRemaining <= 7) {
+        message = event.title + " is coming soon.";
+      }
+    }
+
+    if (event.type === "Reminder") {
+      if (daysRemaining === 0) {
+        message = event.title + " is scheduled for today.";
+      } else if (daysRemaining === 1) {
+        message = event.title + " is due tomorrow.";
+      } else if (daysRemaining <= 7) {
+        message = event.title + " is in " + daysRemaining + " days.";
+      }
+    }
+
+    if (!message) return;
+
+    const key = event.id;
+    if (seenKeys.has(key)) return;
+
+    next.push({
+      id: "notification-" + Date.now() + Math.random().toString(16).slice(2),
+      eventKey: key,
+      title: event.title,
+      type: event.type,
+      message: message,
+      read: false,
+      createdAt: new Date().toISOString(),
+    });
+    seenKeys.add(key);
+  });
+
+  saveNotifications(next);
+}
+
+function updateNotificationBadge() {
+  const count = document.getElementById("notification-count");
+  if (!count) return;
+
+  const unread = getNotifications().filter((item) => !item.read).length;
+  count.textContent = unread;
+  count.style.display = unread ? "grid" : "none";
+}
+
+function renderNotificationList() {
+  const notificationList = document.getElementById("notification-list");
+  const dashboardNotifications = document.getElementById("dashboard-notifications");
+  const notifications = getNotifications()
+    .slice()
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+  const html = notifications.length
+    ? notifications
+        .map(
+          (item) =>
+            '<button class="notification-item ' +
+            (item.read ? "" : "unread") +
+            '" data-notification-id="' +
+            item.id +
+            '" type="button"><strong>' +
+            esc(item.title) +
+            "</strong><span>" +
+            esc(item.message) +
+            "</span><small>" +
+            esc(item.type) +
+            "</small></button>",
+        )
+        .join("")
+    : '<p class="empty-state">No notifications yet.</p>';
+
+  if (notificationList) notificationList.innerHTML = html;
+  if (dashboardNotifications) dashboardNotifications.innerHTML = html;
+  updateNotificationBadge();
+}
+
+function markAllNotificationsRead() {
+  const notifications = getNotifications().map((item) => ({ ...item, read: true }));
+  saveNotifications(notifications);
+  renderNotificationList();
+}
+
+function setupNotifications() {
+  if (!document.querySelector(".site-header")) return;
+
+  const header = document.querySelector(".site-header");
+  const toggle = document.getElementById("notification-toggle");
+  const panel = document.getElementById("notification-panel");
+
+  if (!toggle) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.id = "notification-toggle";
+    button.className = "notification-button";
+    button.setAttribute("aria-label", "Open notifications");
+    button.innerHTML =
+      '<span class="notification-icon" aria-hidden="true">🔔</span><span class="notification-count" id="notification-count">0</span>';
+    header.appendChild(button);
+  }
+
+  if (!panel) {
+    const newPanel = document.createElement("div");
+    newPanel.id = "notification-panel";
+    newPanel.className = "notification-panel";
+    newPanel.hidden = true;
+    newPanel.innerHTML =
+      '<div class="panel-top"><h3>Notifications</h3><button class="text-button" id="mark-all-read" type="button">Mark all as read</button></div><div id="notification-list"></div>';
+    header.appendChild(newPanel);
+  }
+
+  const activeToggle = document.getElementById("notification-toggle");
+  const activePanel = document.getElementById("notification-panel");
+
+  if (activeToggle) {
+    activeToggle.onclick = (event) => {
+      event.stopPropagation();
+      if (activePanel) activePanel.hidden = !activePanel.hidden;
+    };
+  }
+
+  document.addEventListener("click", (event) => {
+    if (
+      activePanel &&
+      !activePanel.hidden &&
+      !activePanel.contains(event.target) &&
+      !activeToggle.contains(event.target)
+    ) {
+      activePanel.hidden = true;
+    }
+  });
+
+  const markAllRead = document.getElementById("mark-all-read");
+  if (markAllRead) {
+    markAllRead.onclick = () => markAllNotificationsRead();
+  }
+
+  const dashboardMarkRead = document.getElementById("dashboard-mark-read");
+  if (dashboardMarkRead) {
+    dashboardMarkRead.onclick = () => markAllNotificationsRead();
+  }
+
+  const list = document.getElementById("notification-list");
+  if (list) {
+    list.onclick = (event) => {
+      const item = event.target.closest("[data-notification-id]");
+      if (!item) return;
+      const id = item.dataset.notificationId;
+      const updated = getNotifications().map((notification) =>
+        notification.id === id ? { ...notification, read: true } : notification,
+      );
+      saveNotifications(updated);
+      renderNotificationList();
+    };
+  }
+
+  const dashboardList = document.getElementById("dashboard-notifications");
+  if (dashboardList) {
+    dashboardList.onclick = (event) => {
+      const item = event.target.closest("[data-notification-id]");
+      if (!item) return;
+      const id = item.dataset.notificationId;
+      const updated = getNotifications().map((notification) =>
+        notification.id === id ? { ...notification, read: true } : notification,
+      );
+      saveNotifications(updated);
+      renderNotificationList();
+    };
+  }
+
+  renderNotificationList();
+}
+
+function renderDashboardReminders() {
+  const container = document.getElementById("dashboard-reminders");
+  if (!container) return;
+
+  const items = buildAcademicEventList().slice(0, 5);
+  container.innerHTML = items.length
+    ? '<div class="reminder-stack">' +
+        items
+          .map((event) => {
+            const daysLeft = getDayDifference(event.date);
+            const level = getReminderLevel(daysLeft);
+            const label =
+              daysLeft === 0
+                ? "Due today"
+                : daysLeft === 1
+                  ? "Due tomorrow"
+                  : daysLeft > 0
+                    ? "Due in " + daysLeft + " days"
+                    : Math.abs(daysLeft) + " days overdue";
+
+            return (
+              '<div class="reminder-item"><strong>' +
+              esc(event.title) +
+              '</strong><small>' +
+              esc(event.type) +
+              " • " +
+              esc(event.course) +
+              "</small><span class=\"reminder-status " +
+              level.className +
+              "\">" +
+              level.label +
+              "</span><small>" +
+              label +
+              "</small></div>"
+            );
+          })
+          .join("") +
+        "</div>"
+    : '<p class="empty-state">No reminders yet.</p>';
+}
+
+function renderCalendarPreview() {
+  const container = document.getElementById("dashboard-calendar-preview");
+  if (!container) return;
+
+  const items = buildAcademicEventList().slice(0, 4);
+  container.innerHTML = items.length
+    ? '<div class="dashboard-mini-list">' +
+        items
+          .map((item) => {
+            const date = new Date(item.date + "T12:00:00");
+            return (
+              '<div class="dashboard-mini-item"><div class="dashboard-mini-date"><b>' +
+              date.getDate() +
+              "</b>" +
+              new Intl.DateTimeFormat("en", { month: "short" }).format(date) +
+              '</div><div class="dashboard-mini-copy"><h3>' +
+              esc(item.title) +
+              '</h3><p>' +
+              esc(item.type) +
+              " • " +
+              esc(item.course) +
+              "</p></div></div>"
+            );
+          })
+          .join("") +
+        "</div>"
+    : '<p class="empty-state">No events yet.</p>';
+}
+
+function setupReminderForm() {
+  const form = document.getElementById("reminder-form");
+  if (!form) return;
+
+  form.onsubmit = (event) => {
+    event.preventDefault();
+
+    const reminder = {
+      id: "reminder-custom-" + Date.now(),
+      title: document.getElementById("reminder-title").value.trim(),
+      date: document.getElementById("reminder-date").value,
+      time: document.getElementById("reminder-time").value,
+      description: document.getElementById("reminder-description").value.trim(),
+      priority: document.getElementById("reminder-priority").value,
+      course: "Personal Reminder",
+    };
+
+    const reminders = getReminders();
+    reminders.push(reminder);
+    saveReminders(reminders);
+    generateAcademicNotifications();
+    renderDashboardReminders();
+    renderCalendarPreview();
+    if (document.body.dataset.page === "calendar") renderCalendarPage();
+    form.reset();
+    document.getElementById("reminder-modal").hidden = true;
+  };
+}
+
+function renderCalendarPage() {
+  if (document.body.dataset.page !== "calendar") return;
+
+  const monthLabel = document.getElementById("calendar-month-label");
+  const grid = document.getElementById("calendar-grid");
+  if (!monthLabel || !grid) return;
+
+  const currentMonth = document.getElementById("calendar-current-month");
+  const monthValue = currentMonth && currentMonth.dataset.month
+    ? new Date(currentMonth.dataset.month)
+    : new Date();
+  const monthStart = new Date(monthValue.getFullYear(), monthValue.getMonth(), 1);
+  const monthEnd = new Date(monthValue.getFullYear(), monthValue.getMonth() + 1, 0);
+  const startingIndex = monthStart.getDay() === 0 ? 6 : monthStart.getDay() - 1;
+  const eventsByDate = buildAcademicEventList().reduce((map, item) => {
+    const date = item.date;
+    if (!map[date]) map[date] = [];
+    map[date].push(item);
+    return map;
+  }, {});
+
+  monthLabel.textContent = new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    year: "numeric",
+  }).format(monthStart);
+
+  const days = [];
+  for (let offset = startingIndex; offset > 0; offset--) {
+    const date = new Date(monthStart);
+    date.setDate(monthStart.getDate() - offset);
+    days.push({ date, otherMonth: true });
+  }
+
+  for (let day = 1; day <= monthEnd.getDate(); day++) {
+    const date = new Date(monthValue.getFullYear(), monthValue.getMonth(), day);
+    days.push({ date, otherMonth: false });
+  }
+
+  while (days.length % 7 !== 0) {
+    const date = new Date(monthEnd);
+    date.setDate(monthEnd.getDate() + (days.length % 7 === 0 ? 0 : 1));
+    days.push({ date, otherMonth: true });
+  }
+
+  grid.innerHTML = days
+    .map((entry) => {
+      const isoDate = entry.date.toISOString().slice(0, 10);
+      const events = eventsByDate[isoDate] || [];
+      const classes = ["calendar-day"];
+      if (entry.otherMonth) classes.push("other-month");
+      if (isoDate === new Date().toISOString().slice(0, 10)) classes.push("today");
+      if (events.length) classes.push("calendar-day-has-events");
+
+      return (
+        '<button type="button" class="' +
+        classes.join(" ") +
+        '" data-date="' +
+        isoDate +
+        '" aria-label="' +
+        isoDate +
+        (events.length ? ": " + events.length + " events" : "") +
+        '"><span class="calendar-day-number">' +
+        entry.date.getDate() +
+        '</span>' +
+        (events.length
+          ? '<div class="calendar-event-list">' +
+            events
+              .slice(0, 3)
+              .map(
+                (event) =>
+                  '<span class="calendar-event-pill ' +
+                  event.eventType +
+                  '" data-event-id="' +
+                  event.id +
+                  '">' +
+                  esc(event.title) +
+                  "</span>",
+              )
+              .join("") +
+            "</div>"
+          : "") +
+        "</button>"
+      );
+    })
+    .join("");
+
+  const dayButtons = document.querySelectorAll(".calendar-day");
+  dayButtons.forEach((button) => {
+    button.onclick = (event) => {
+      const target = event.target.closest("[data-event-id]");
+      const dateValue = button.dataset.date;
+
+      if (target) {
+        const eventId = target.dataset.eventId;
+        const event = buildAcademicEventList().find((item) => item.id === eventId);
+        if (event) openEventModal(event);
+        return;
+      }
+
+      const dateEvents = buildAcademicEventList().filter(
+        (item) => item.date === dateValue,
+      );
+      if (dateEvents.length) openEventModal(dateEvents[0]);
+    };
+  });
+}
+
+function openEventModal(event) {
+  const modal = document.getElementById("calendar-event-modal");
+  if (!modal) return;
+
+  const title = document.getElementById("calendar-event-title");
+  const type = document.getElementById("calendar-event-type");
+  const course = document.getElementById("calendar-event-course");
+  const date = document.getElementById("calendar-event-date");
+  const time = document.getElementById("calendar-event-time");
+  const description = document.getElementById("calendar-event-description");
+  const status = document.getElementById("calendar-event-status");
+  const priority = document.getElementById("calendar-event-priority");
+
+  if (title) title.textContent = event.title;
+  if (type) type.textContent = event.type;
+  if (course) course.textContent = event.course;
+  if (date) {
+    date.textContent = event.date
+      ? new Intl.DateTimeFormat("en-US", {
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+        }).format(new Date(event.date + "T12:00:00"))
+      : "No date";
+  }
+  if (time) time.textContent = event.time || "No time specified";
+  if (description)
+    description.textContent = event.description || "No description available.";
+  if (status) status.textContent = event.status || "Scheduled";
+  if (priority) priority.textContent = event.priority || "Medium";
+
+  modal.hidden = false;
+}
+
+function setupCalendarPage() {
+  if (document.body.dataset.page !== "calendar") return;
+
+  const currentValue = document.getElementById("calendar-current-month");
+  if (!currentValue) return;
+
+  const today = new Date();
+  currentValue.dataset.month = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    1,
+  ).toISOString();
+
+  document.getElementById("calendar-prev").onclick = () => {
+    const view = new Date(currentValue.dataset.month);
+    view.setMonth(view.getMonth() - 1);
+    currentValue.dataset.month = view.toISOString();
+    renderCalendarPage();
+  };
+
+  document.getElementById("calendar-next").onclick = () => {
+    const view = new Date(currentValue.dataset.month);
+    view.setMonth(view.getMonth() + 1);
+    currentValue.dataset.month = view.toISOString();
+    renderCalendarPage();
+  };
+
+  document.getElementById("calendar-today").onclick = () => {
+    const todayDate = new Date();
+    currentValue.dataset.month = new Date(
+      todayDate.getFullYear(),
+      todayDate.getMonth(),
+      1,
+    ).toISOString();
+    renderCalendarPage();
+  };
+
+  renderCalendarPage();
+}
+
+function setupReminderAndCalendar() {
+  generateAcademicNotifications();
+  setupNotifications();
+  setupReminderForm();
+  setupCalendarPage();
+  renderDashboardReminders();
+  renderCalendarPreview();
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   setupAuth();
+
   let b = document.querySelector(".menu-toggle"),
     n = document.querySelector(".main-nav");
   if (b) b.onclick = () => n.classList.toggle("open");
+
   modal();
+  addCalendarNavLink();
   setupAssignments();
   setupTests();
   setupPresentations();
   dashboard();
   setupMessages();
   setupGroups();
+  setupReminderAndCalendar();
 });
