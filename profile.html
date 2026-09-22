@@ -1,1 +1,56 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Profile | CampusPlan</title><link rel="stylesheet" href="css/style.css"></head><body data-page="profile"><header class="site-header"><a class="brand" href="index.html">Campus<span>Plan</span></a><button class="menu-toggle" aria-label="Open navigation">&#9776;</button><nav class="main-nav"><a href="index.html">Dashboard</a><a href="assignments.html">Assignments</a><a href="tests.html">Tests &amp; Exams</a><a href="presentations.html">Presentations</a><a href="timetable.html">Timetable</a><a href="messages.html">Messages</a><a href="groups.html">Groups</a></nav><button class="profile"></button></header><main class="page-shell"><section class="page-title"><div><p class="eyebrow">YOUR ACCOUNT</p><h1>Profile</h1><p>Keep your CampusPlan information current.</p></div></section><section class="panel profile-panel"><form id="profile-form" class="form-grid"><label>Full Name<input id="profile-name" required></label><label>Student ID<input id="profile-id" disabled></label><label>Email<input id="profile-email" type="email" required></label><label>University/Institution<input id="profile-institution" required></label><label>Course/Program<input id="profile-program" required></label><label>Year of Study<select id="profile-year"><option>Year 1</option><option>Year 2</option><option>Year 3</option><option>Year 4</option></select></label><p class="form-notice full" id="profile-notice"></p><button class="button full">Save profile</button></form></section></main><script src="js/script.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>Profile | CampusPlan</title>
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body data-page="profile">
+    <header class="site-header">
+      <a class="brand" href="index.html">Campus<span>Plan</span></a
+      ><button class="menu-toggle" aria-label="Open navigation">&#9776;</button>
+      <nav class="main-nav">
+        <a href="index.html">Dashboard</a
+        ><a href="assignments.html">Assignments</a
+        ><a href="tests.html">Tests &amp; Exams</a
+        ><a href="presentations.html">Presentations</a
+        ><a href="timetable.html">Timetable</a
+        ><a href="messages.html">Messages</a><a href="groups.html">Groups</a>
+      </nav>
+      <button class="profile"></button>
+    </header>
+    <main class="page-shell">
+      <section class="page-title">
+        <div>
+          <p class="eyebrow">YOUR ACCOUNT</p>
+          <h1>Profile</h1>
+          <p>Keep your CampusPlan information current.</p>
+        </div>
+      </section>
+      <section class="panel profile-panel">
+        <form id="profile-form" class="form-grid">
+          <label>Full Name<input id="profile-name" required /></label
+          ><label>Student ID<input id="profile-id" disabled /></label
+          ><label>Email<input id="profile-email" type="email" required /></label
+          ><label
+            >University/Institution<input
+              id="profile-institution"
+              required /></label
+          ><label>Course/Program<input id="profile-program" required /></label
+          ><label
+            >Year of Study<select id="profile-year">
+              <option>Year 1</option>
+              <option>Year 2</option>
+              <option>Year 3</option>
+              <option>Year 4</option>
+            </select></label
+          >
+          <p class="form-notice full" id="profile-notice"></p>
+          <button class="button full">Save profile</button>
+        </form>
+      </section>
+    </main>
+    <script src="js/script.js"></script>
+  </body>
+</html>

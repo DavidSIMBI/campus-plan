@@ -1,4 +1,83 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Tests &amp; Exams | CampusPlan</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="css/style.css"></head>
-<body data-page="tests"><header class="site-header"><a class="brand" href="index.html">Campus<span>Plan</span></a><button class="menu-toggle" aria-label="Open navigation" aria-expanded="false">&#9776;</button><nav class="main-nav" aria-label="Main navigation"><a href="index.html">Dashboard</a><a href="assignments.html">Assignments</a><a class="active" href="tests.html">Tests &amp; Exams</a><a href="presentations.html">Presentations</a><a href="timetable.html">Timetable</a><a href="messages.html">Messages</a><a href="groups.html">Groups</a></nav><button class="profile" aria-label="Open profile menu"><span class="avatar">DN</span><span class="profile-name">David N.</span><span>&#8964;</span></button></header>
-<main class="page-shell"><section class="page-title"><div><p class="eyebrow">ASSESSMENTS</p><h1>Tests &amp; exams</h1><p>Prepare early and feel confident on the day.</p></div><button class="button" data-open-modal="test-modal">+ Add test</button></section><section class="test-grid" id="test-list"></section></main>
-<div class="modal" id="test-modal" hidden><div class="modal-backdrop" data-close-modal></div><section class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="test-modal-title"><button class="modal-close" aria-label="Close form" data-close-modal>&times;</button><h2 id="test-modal-title">Add test or exam</h2><form id="test-form" class="form-grid"><label>Test title<input id="test-title" required placeholder="e.g. Database Test"></label><label>Course<input id="test-course" required></label><label>Date<input id="test-date" type="date" required></label><label>Time<input id="test-time" type="time" required></label><label>Room<input id="test-room" required placeholder="e.g. B12"></label><div class="form-actions full"><button type="button" class="button secondary" data-close-modal>Cancel</button><button class="button">Save test</button></div></form></section></div><script src="js/script.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tests &amp; Exams | CampusPlan</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body data-page="tests">
+    <header class="site-header">
+      <a class="brand" href="index.html">Campus<span>Plan</span></a
+      ><button
+        class="menu-toggle"
+        aria-label="Open navigation"
+        aria-expanded="false"
+      >
+        &#9776;
+      </button>
+      <nav class="main-nav" aria-label="Main navigation">
+        <a href="index.html">Dashboard</a
+        ><a href="assignments.html">Assignments</a
+        ><a class="active" href="tests.html">Tests &amp; Exams</a
+        ><a href="presentations.html">Presentations</a
+        ><a href="timetable.html">Timetable</a
+        ><a href="messages.html">Messages</a><a href="groups.html">Groups</a>
+      </nav>
+      <button class="profile" aria-label="Open profile menu">
+        <span class="avatar">DN</span><span class="profile-name">David N.</span
+        ><span>&#8964;</span>
+      </button>
+    </header>
+    <main class="page-shell">
+      <section class="page-title">
+        <div>
+          <p class="eyebrow">ASSESSMENTS</p>
+          <h1>Tests &amp; exams</h1>
+          <p>Prepare early and feel confident on the day.</p>
+        </div>
+        <button class="button" data-open-modal="test-modal">+ Add test</button>
+      </section>
+      <section class="test-grid" id="test-list"></section>
+    </main>
+    <div class="modal" id="test-modal" hidden>
+      <div class="modal-backdrop" data-close-modal></div>
+      <section
+        class="modal-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="test-modal-title"
+      >
+        <button class="modal-close" aria-label="Close form" data-close-modal>
+          &times;
+        </button>
+        <h2 id="test-modal-title">Add test or exam</h2>
+        <form id="test-form" class="form-grid">
+          <label
+            >Test title<input
+              id="test-title"
+              required
+              placeholder="e.g. Database Test" /></label
+          ><label>Course<input id="test-course" required /></label
+          ><label>Date<input id="test-date" type="date" required /></label
+          ><label>Time<input id="test-time" type="time" required /></label
+          ><label
+            >Room<input id="test-room" required placeholder="e.g. B12"
+          /></label>
+          <div class="form-actions full">
+            <button type="button" class="button secondary" data-close-modal>
+              Cancel</button
+            ><button class="button">Save test</button>
+          </div>
+        </form>
+      </section>
+    </div>
+    <script src="js/script.js"></script>
+  </body>
+</html>

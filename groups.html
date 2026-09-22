@@ -1,1 +1,95 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Groups | CampusPlan</title><link rel="stylesheet" href="css/style.css"></head><body data-page="groups"><header class="site-header"><a class="brand" href="index.html">Campus<span>Plan</span></a><button class="menu-toggle" aria-label="Open navigation">&#9776;</button><nav class="main-nav"><a href="index.html">Dashboard</a><a href="assignments.html">Assignments</a><a href="tests.html">Tests &amp; Exams</a><a href="presentations.html">Presentations</a><a href="timetable.html">Timetable</a><a href="messages.html">Messages</a><a class="active" href="groups.html">Groups</a></nav><button class="profile"><span class="avatar">DN</span><span class="profile-name">David N.</span></button></header><main class="page-shell"><section class="page-title"><div><p class="eyebrow">LEARN TOGETHER</p><h1>Groups</h1><p>Course communities and focused study spaces.</p></div><button class="button" data-open-modal="group-modal">+ Create group</button></section><h2 class="section-label">Private groups</h2><section class="group-grid" id="private-groups"></section><h2 class="section-label">Course communities</h2><section class="group-grid" id="communities"></section><section class="panel group-chat" id="group-chat" hidden><header class="chat-header"><div><h2 id="group-name"></h2><p id="group-description"></p></div></header><div class="group-content"><div><div class="chat-messages" id="group-messages"></div><form class="chat-compose" id="group-form"><input id="group-input" placeholder="Message this group..."><button class="send-button">Send</button></form></div><aside class="members"><h3>Members</h3><div id="member-list"></div></aside></div></section></main><div class="modal" id="group-modal" hidden><div class="modal-backdrop" data-close-modal></div><section class="modal-dialog"><button class="modal-close" data-close-modal>&times;</button><h2>Create group</h2><form id="group-create-form" class="form-grid"><label>Group name<input id="group-title" required></label><label>Course<input id="group-course" required></label><label class="full">Description<textarea id="group-description-input" required></textarea></label><label>Group type<select id="group-type"><option>Study Group</option><option>Assignment Group</option><option>Presentation Group</option><option>Course Community</option><option>Other</option></select></label><div class="form-actions full"><button class="button">Create group</button></div></form></section></div><script src="js/script.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>Groups | CampusPlan</title>
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body data-page="groups">
+    <header class="site-header">
+      <a class="brand" href="index.html">Campus<span>Plan</span></a
+      ><button class="menu-toggle" aria-label="Open navigation">&#9776;</button>
+      <nav class="main-nav">
+        <a href="index.html">Dashboard</a
+        ><a href="assignments.html">Assignments</a
+        ><a href="tests.html">Tests &amp; Exams</a
+        ><a href="presentations.html">Presentations</a
+        ><a href="timetable.html">Timetable</a
+        ><a href="messages.html">Messages</a
+        ><a class="active" href="groups.html">Groups</a>
+      </nav>
+      <button class="profile">
+        <span class="avatar">DN</span><span class="profile-name">David N.</span>
+      </button>
+    </header>
+    <main class="page-shell">
+      <section class="page-title">
+        <div>
+          <p class="eyebrow">LEARN TOGETHER</p>
+          <h1>Groups</h1>
+          <p>Course communities and focused study spaces.</p>
+        </div>
+        <button class="button" data-open-modal="group-modal">
+          + Create group
+        </button>
+      </section>
+      <h2 class="section-label">Private groups</h2>
+      <section class="group-grid" id="private-groups"></section>
+      <h2 class="section-label">Course communities</h2>
+      <section class="group-grid" id="communities"></section>
+      <section class="panel group-chat" id="group-chat" hidden>
+        <header class="chat-header">
+          <div>
+            <h2 id="group-name"></h2>
+            <p id="group-description"></p>
+          </div>
+        </header>
+        <div class="group-content">
+          <div>
+            <div class="chat-messages" id="group-messages"></div>
+            <form class="chat-compose" id="group-form">
+              <input
+                id="group-input"
+                placeholder="Message this group..."
+              /><button class="send-button">Send</button>
+            </form>
+          </div>
+          <aside class="members">
+            <h3>Members</h3>
+            <div id="member-list"></div>
+          </aside>
+        </div>
+      </section>
+    </main>
+    <div class="modal" id="group-modal" hidden>
+      <div class="modal-backdrop" data-close-modal></div>
+      <section class="modal-dialog">
+        <button class="modal-close" data-close-modal>&times;</button>
+        <h2>Create group</h2>
+        <form id="group-create-form" class="form-grid">
+          <label>Group name<input id="group-title" required /></label
+          ><label>Course<input id="group-course" required /></label
+          ><label class="full"
+            >Description<textarea
+              id="group-description-input"
+              required
+            ></textarea></label
+          ><label
+            >Group type<select id="group-type">
+              <option>Study Group</option>
+              <option>Assignment Group</option>
+              <option>Presentation Group</option>
+              <option>Course Community</option>
+              <option>Other</option>
+            </select></label
+          >
+          <div class="form-actions full">
+            <button class="button">Create group</button>
+          </div>
+        </form>
+      </section>
+    </div>
+    <script src="js/script.js"></script>
+  </body>
+</html>

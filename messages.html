@@ -1,1 +1,86 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Messages | CampusPlan</title><link rel="stylesheet" href="css/style.css"></head><body data-page="messages"><header class="site-header"><a class="brand" href="index.html">Campus<span>Plan</span></a><button class="menu-toggle" aria-label="Open navigation">&#9776;</button><nav class="main-nav"><a href="index.html">Dashboard</a><a href="assignments.html">Assignments</a><a href="tests.html">Tests &amp; Exams</a><a href="presentations.html">Presentations</a><a href="timetable.html">Timetable</a><a class="active" href="messages.html">Messages</a><a href="groups.html">Groups</a></nav><button class="profile"><span class="avatar">DN</span><span class="profile-name">David N.</span></button></header><main class="page-shell"><section class="page-title small-title"><div><p class="eyebrow">STUDENT CONNECTIONS</p><h1>Messages</h1></div><button class="button" data-open-modal="new-message-modal">+ New message</button></section><section class="messaging-layout"><aside class="conversation-list"><label class="search">Search students<input id="student-search" type="search" placeholder="Search Sarah, John..."></label><div id="student-results" class="student-results"></div><div id="conversation-list"></div></aside><section class="chat-window" id="private-chat"><header class="chat-header"><button class="back-button" id="back-to-list">←</button><span class="avatar" id="chat-avatar">SM</span><div><h2 id="chat-name">Sarah M.</h2><p><i></i> Online</p></div></header><div class="chat-messages" id="private-messages"></div><form class="chat-compose" id="private-form"><input id="private-input" placeholder="Write a message..."><button class="send-button">Send</button></form></section></section></main><div class="modal" id="new-message-modal" hidden><div class="modal-backdrop" data-close-modal></div><section class="modal-dialog"><button class="modal-close" data-close-modal>&times;</button><h2>New message</h2><form id="new-message-form" class="form-grid"><label class="full">Student<select id="new-message-student"></select></label><label class="full">Message<textarea id="new-message-text" required></textarea></label><div class="form-actions full"><button class="button">Send message</button></div></form></section></div><script src="js/script.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>Messages | CampusPlan</title>
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body data-page="messages">
+    <header class="site-header">
+      <a class="brand" href="index.html">Campus<span>Plan</span></a
+      ><button class="menu-toggle" aria-label="Open navigation">&#9776;</button>
+      <nav class="main-nav">
+        <a href="index.html">Dashboard</a
+        ><a href="assignments.html">Assignments</a
+        ><a href="tests.html">Tests &amp; Exams</a
+        ><a href="presentations.html">Presentations</a
+        ><a href="timetable.html">Timetable</a
+        ><a class="active" href="messages.html">Messages</a
+        ><a href="groups.html">Groups</a>
+      </nav>
+      <button class="profile">
+        <span class="avatar">DN</span><span class="profile-name">David N.</span>
+      </button>
+    </header>
+    <main class="page-shell">
+      <section class="page-title small-title">
+        <div>
+          <p class="eyebrow">STUDENT CONNECTIONS</p>
+          <h1>Messages</h1>
+        </div>
+        <button class="button" data-open-modal="new-message-modal">
+          + New message
+        </button>
+      </section>
+      <section class="messaging-layout">
+        <aside class="conversation-list">
+          <label class="search"
+            >Search students<input
+              id="student-search"
+              type="search"
+              placeholder="Search Sarah, John..."
+          /></label>
+          <div id="student-results" class="student-results"></div>
+          <div id="conversation-list"></div>
+        </aside>
+        <section class="chat-window" id="private-chat">
+          <header class="chat-header">
+            <button class="back-button" id="back-to-list">←</button
+            ><span class="avatar" id="chat-avatar">SM</span>
+            <div>
+              <h2 id="chat-name">Sarah M.</h2>
+              <p><i></i> Online</p>
+            </div>
+          </header>
+          <div class="chat-messages" id="private-messages"></div>
+          <form class="chat-compose" id="private-form">
+            <input id="private-input" placeholder="Write a message..." /><button
+              class="send-button"
+            >
+              Send
+            </button>
+          </form>
+        </section>
+      </section>
+    </main>
+    <div class="modal" id="new-message-modal" hidden>
+      <div class="modal-backdrop" data-close-modal></div>
+      <section class="modal-dialog">
+        <button class="modal-close" data-close-modal>&times;</button>
+        <h2>New message</h2>
+        <form id="new-message-form" class="form-grid">
+          <label class="full"
+            >Student<select id="new-message-student"></select></label
+          ><label class="full"
+            >Message<textarea id="new-message-text" required></textarea>
+          </label>
+          <div class="form-actions full">
+            <button class="button">Send message</button>
+          </div>
+        </form>
+      </section>
+    </div>
+    <script src="js/script.js"></script>
+  </body>
+</html>
