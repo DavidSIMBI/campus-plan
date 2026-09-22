@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>document.documentElement.dataset.theme = localStorage.getItem("campusplan_theme") || "light";</script>
     <title>CampusPlan | Dashboard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -36,7 +37,7 @@
         id="notification-toggle"
         aria-label="Open notifications"
       >
-        <span class="notification-icon" aria-hidden="true">🔔</span>
+        <span class="notification-icon" aria-hidden="true"></span>
         <span class="notification-count" id="notification-count">0</span>
       </button>
       <button class="profile" aria-label="Open profile menu">
@@ -59,7 +60,6 @@
           <p class="eyebrow">STUDENT DASHBOARD</p>
           <h1>
             Good morning, <span id="student-name">David</span>
-            <span aria-hidden="true">&#128075;</span>
           </h1>
           <p>Here is what you need to focus on today.</p>
         </div>
@@ -67,33 +67,39 @@
       </section>
       <section class="summary-grid four-stats" aria-label="Academic overview">
         <article class="summary-card accent-blue">
-          <span class="stat-icon">&#128218;</span>
+          <span class="stat-icon" aria-hidden="true"></span>
           <div>
             <span>Pending Assignments</span><strong id="pending-count">0</strong
             ><small>Tasks to complete</small>
           </div>
         </article>
         <article class="summary-card accent-orange">
-          <span class="stat-icon">&#129514;</span>
+          <span class="stat-icon" aria-hidden="true"></span>
           <div>
             <span>Upcoming Tests</span><strong id="test-count">0</strong
             ><small>Plan your revision</small>
           </div>
         </article>
         <article class="summary-card accent-purple">
-          <span class="stat-icon">&#127908;</span>
+          <span class="stat-icon" aria-hidden="true"></span>
           <div>
             <span>Presentations</span><strong id="presentation-count">0</strong
             ><small>In your schedule</small>
           </div>
         </article>
         <article class="summary-card accent-green">
-          <span class="stat-icon">&#9989;</span>
+          <span class="stat-icon" aria-hidden="true"></span>
           <div>
             <span>Completed Tasks</span><strong id="completed-count">0</strong
             ><small>Great work, David</small>
           </div>
         </article>
+      </section>
+      <section class="summary-grid four-stats dashboard-quick-stats" aria-label="Communication overview">
+        <a class="summary-card accent-blue" href="messages.html"><span><strong id="message-count">0</strong><small>Unread messages</small></span></a>
+        <a class="summary-card accent-orange" href="#dashboard-notifications"><span><strong id="notification-dashboard-count">0</strong><small>Unread notifications</small></span></a>
+        <a class="summary-card accent-green" href="#dashboard-events"><span><strong id="classes-today">0</strong><small>Classes today</small></span></a>
+        <a class="summary-card accent-purple" href="calendar.html"><span><strong id="deadline-count">0</strong><small>Upcoming deadlines</small></span></a>
       </section>
       <section class="dashboard-grid">
         <div class="content-column">
@@ -194,20 +200,14 @@
               <h2>Recent messages</h2>
               <a href="messages.html">Open inbox</a>
             </div>
-            <article class="message-preview">
-              <span class="avatar violet">JK</span>
-              <div>
-                <h3>James K.</h3>
-                <p>I've added my section to the slides.</p>
-              </div>
-            </article>
-            <article class="message-preview">
-              <span class="avatar green-avatar">SG</span>
-              <div>
-                <h3>Statistics Study Group</h3>
-                <p>Are we meeting after class?</p>
-              </div>
-            </article>
+            <div id="dashboard-recent-messages"></div>
+          </section>
+          <section class="panel compact">
+            <div class="panel-heading">
+              <h2>Recent group activity</h2>
+              <a href="groups.html">Open groups</a>
+            </div>
+            <div id="dashboard-group-activity"></div>
           </section>
         </aside>
       </section>

@@ -1,6 +1,32 @@
 // Prototype only: production authentication needs a backend, hashed passwords, secure sessions/tokens, and database storage.
 const USER_KEY = "campusplan-users",
   SESSION_KEY = "campusplan-current-user";
+const THEME_KEY = "campusplan_theme";
+function applyTheme(theme) {
+  const nextTheme = theme === "dark" ? "dark" : "light";
+  document.documentElement.dataset.theme = nextTheme;
+  localStorage.setItem(THEME_KEY, nextTheme);
+  return nextTheme;
+}
+function setupTheme() {
+  const currentTheme = applyTheme(localStorage.getItem(THEME_KEY) || "light");
+  const existing = document.getElementById("theme-toggle");
+  if (existing) return;
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.id = "theme-toggle";
+  toggle.className = "theme-toggle";
+  toggle.setAttribute("aria-label", "Switch color theme");
+  toggle.innerHTML = '<span class="theme-toggle-label">' + (currentTheme === "dark" ? "Dark" : "Light") + "</span>";
+  const header = document.querySelector(".site-header");
+  const authCard = document.querySelector(".auth-card");
+  if (header) header.insertBefore(toggle, header.querySelector(".profile") || null);
+  else if (authCard) authCard.appendChild(toggle);
+  toggle.onclick = () => {
+    const nextTheme = applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
+    toggle.querySelector(".theme-toggle-label").textContent = nextTheme === "dark" ? "Dark" : "Light";
+  };
+}
 function currentUser() {
   try {
     return JSON.parse(localStorage.getItem(SESSION_KEY));
@@ -491,12 +517,27 @@ function dashboard() {
     done = a.filter((x) => x.status === "Completed").length,
     pc = a.length ? Math.round((done / a.length) * 100) : 0,
     by = (id) => document.getElementById(id);
+  const upcomingTests = t.filter((x) => days(x.date) >= 0);
+  const upcomingPresentations = p.filter((x) => x.status !== "Completed");
+  const student = currentUser();
+  const conversations = JSON.parse(localStorage.getItem(userKey("campusplan-conversations")) || "[]");
+  const groups = JSON.parse(localStorage.getItem(userKey("campusplan-groups")) || "[]");
+  const unreadMessages = conversations.reduce(
+    (count, conversation) => count + conversation.messages.filter((message) => message.senderId !== student.studentId && !message.read).length,
+    0,
+  );
+  const unreadNotifications = getNotifications().filter((notification) => !notification.read).length;
   by("pending-count").textContent = a.length - done;
-  by("test-count").textContent = t.filter((x) => days(x.date) >= 0).length;
+  by("test-count").textContent = upcomingTests.length;
   by("presentation-count").textContent = p.filter(
     (x) => x.status !== "Completed",
   ).length;
   by("completed-count").textContent = done;
+  if (by("message-count")) by("message-count").textContent = unreadMessages;
+  if (by("notification-dashboard-count")) by("notification-dashboard-count").textContent = unreadNotifications;
+  if (by("deadline-count")) by("deadline-count").textContent = a.filter((item) => days(item.dueDate) >= 0).length + upcomingTests.length + upcomingPresentations.length;
+  if (by("student-name") && student) by("student-name").textContent = student.name.split(" ")[0];
+  if (by("classes-today")) by("classes-today").textContent = "3";
   by("progress-percent").textContent = pc + "%";
   by("progress-summary").textContent =
     done + " of " + a.length + " assignments completed";
@@ -507,7 +548,7 @@ function dashboard() {
     .slice(0, 4)
     .map(
       (x) =>
-        '<article class="task"><span class="task-icon blue">&#128218;</span><div><h3>' +
+        '<article class="task"><span class="task-icon blue" aria-hidden="true"></span><div><h3>' +
         esc(x.title) +
         "</h3><p>" +
         esc(x.course) +
@@ -549,6 +590,30 @@ function dashboard() {
         " days</p></div></article>",
     )
     .join("");
+  const recentMessages = conversations
+    .slice()
+    .sort((first, second) => new Date(second.messages.at(-1)?.timestamp || 0) - new Date(first.messages.at(-1)?.timestamp || 0))
+    .slice(0, 2);
+  const messageContainer = by("dashboard-recent-messages");
+  if (messageContainer) {
+    messageContainer.innerHTML = recentMessages.length
+      ? recentMessages.map((conversation) => {
+          const profile = getUserProfile(conversation.participantId) || {};
+          const last = conversation.messages.at(-1);
+          return '<a class="message-preview" href="messages.html">' + avatarMarkup(profile.studentId) + '<div><h3>' + esc(profile.name || "Student") + '</h3><p>' + esc(last?.text || "No messages yet") + '</p></div></a>';
+        }).join("")
+      : '<p class="empty-state">No recent conversations.</p>';
+  }
+  const groupContainer = by("dashboard-group-activity");
+  if (groupContainer) {
+    const activeGroups = groups
+      .filter((group) => group.messages && group.messages.length)
+      .sort((first, second) => new Date(second.messages.at(-1).timestamp) - new Date(first.messages.at(-1).timestamp))
+      .slice(0, 2);
+    groupContainer.innerHTML = activeGroups.length
+      ? activeGroups.map((group) => '<a class="message-preview" href="groups.html"><span class="avatar group-avatar">CP</span><div><h3>' + esc(group.name) + '</h3><p>' + esc(group.messages.at(-1).text) + '</p></div></a>').join("")
+      : '<p class="empty-state">No recent group activity.</p>';
+  }
 }
 function commData(key, initial) {
   let storageKey = key === "campusplan-chats" ? userKey(key) : key,
@@ -1720,7 +1785,7 @@ function setupNotifications() {
     button.className = "notification-button";
     button.setAttribute("aria-label", "Open notifications");
     button.innerHTML =
-      '<span class="notification-icon" aria-hidden="true">🔔</span><span class="notification-count" id="notification-count">0</span>';
+      '<span class="notification-icon" aria-hidden="true"></span><span class="notification-count" id="notification-count">0</span>';
     header.appendChild(button);
   }
 
@@ -2086,6 +2151,7 @@ function setupReminderAndCalendar() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  setupTheme();
   setupAuth();
 
   let b = document.querySelector(".menu-toggle"),
