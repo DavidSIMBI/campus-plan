@@ -4,6 +4,7 @@ const cors = require("cors");
 const express = require("express");
 const authRoutes = require("./routes/authRoutes");
 const assignmentRoutes = require("./routes/assignmentRoutes");
+const testRoutes = require("./routes/testRoutes");
 
 const app = express();
 const port = Number(process.env.PORT || 5000);
@@ -27,6 +28,7 @@ app.get("/api/health", (req, res) => {
 });
 app.use("/api/auth", authRoutes);
 app.use("/api/assignments", assignmentRoutes);
+app.use("/api/tests", testRoutes);
 
 app.use((error, req, res, next) => {
   if (error.message === "Origin is not allowed by CORS.") {

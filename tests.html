@@ -60,17 +60,24 @@
         </button>
         <h2 id="test-modal-title">Add test or exam</h2>
         <form id="test-form" class="form-grid">
+          <input type="hidden" id="test-id" />
           <label
             >Test title<input
               id="test-title"
               required
               placeholder="e.g. Database Test" /></label
           ><label>Course<input id="test-course" required /></label
+          ><label class="full">Description<textarea id="test-description" rows="3"></textarea></label
           ><label>Date<input id="test-date" type="date" required /></label
           ><label>Time<input id="test-time" type="time" required /></label
           ><label
             >Room<input id="test-room" required placeholder="e.g. B12"
-          /></label>
+          /></label
+          ><label>Status<select id="test-status">
+            <option selected>Upcoming</option>
+            <option>Completed</option>
+            <option>Missed</option>
+          </select></label>
           <div class="form-actions full">
             <button type="button" class="button secondary" data-close-modal>
               Cancel</button

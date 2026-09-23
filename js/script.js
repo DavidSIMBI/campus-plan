@@ -4,8 +4,10 @@ const USER_KEY = "campusplan-users",
 const AUTH_TOKEN_KEY = "campusplan_auth_token";
 const AUTH_API_BASE = "http://localhost:5000/api/auth";
 const ASSIGNMENTS_API_BASE = "http://localhost:5000/api/assignments";
+const TESTS_API_BASE = "http://localhost:5000/api/tests";
 const THEME_KEY = "campusplan_theme";
 let assignmentStore = [];
+let testStore = [];
 function applyTheme(theme) {
   const nextTheme = theme === "dark" ? "dark" : "light";
   document.documentElement.dataset.theme = nextTheme;
@@ -78,6 +80,26 @@ async function assignmentRequest(path = "", options = {}) {
     throw new Error("Your session has expired. Please log in again.");
   }
   if (!response.ok) throw new Error(body.message || "Assignment request failed.");
+  return body;
+}
+async function testRequest(path = "", options = {}) {
+  const token = localStorage.getItem(AUTH_TOKEN_KEY);
+  const response = await fetch(TESTS_API_BASE + path, {
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: "Bearer " + token } : {}),
+      ...(options.headers || {}),
+    },
+    ...options,
+  });
+  const body = await response.json().catch(() => ({}));
+  if (response.status === 401) {
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+    localStorage.removeItem(SESSION_KEY);
+    location.replace("login.html?notice=session-expired");
+    throw new Error("Your session has expired. Please log in again.");
+  }
+  if (!response.ok) throw new Error(body.message || "Test request failed.");
   return body;
 }
 function frontendUser(apiUser) {
@@ -517,63 +539,192 @@ function setupAssignments() {
   };
 }
 function renderTests() {
-  let l = document.getElementById("test-list");
-  if (!l) return;
-  let rows = get("tests").sort((a, b) => a.date.localeCompare(b.date));
-  l.innerHTML = rows
-    .map(
-      (x) =>
-        '<article class="test-card"><div class="card-top"><span class="course-tag green-bg">' +
-        esc(x.course) +
-        '</span><button class="text-button danger" data-delete-test="' +
-        x.id +
-        '">Delete</button></div><h2>' +
-        esc(x.title) +
-        "</h2><dl><div><dt>Date</dt><dd>" +
-        date(x.date) +
-        "</dd></div><div><dt>Time</dt><dd>" +
-        esc(x.time) +
-        "</dd></div><div><dt>Room</dt><dd>" +
-        esc(x.room) +
-        '</dd></div></dl><p class="days-remaining">' +
-        (days(x.date) === 0 ? "Today" : days(x.date) + " days remaining") +
-        "</p></article>",
-    )
-    .join("");
+  const list = document.getElementById("test-list");
+  if (!list) return;
+  const rows = testStore.slice().sort((a, b) => a.date.localeCompare(b.date));
+  list.innerHTML = rows.length
+    ? rows
+        .map((test) => {
+          const relativeDate =
+            test.status === "Completed"
+              ? "Completed"
+              : test.status === "Missed"
+                ? "Missed"
+                : days(test.date) === 0
+                  ? "Today"
+                  : days(test.date) === 1
+                    ? "Tomorrow"
+                    : days(test.date) + " days remaining";
+          return (
+            '<article class="test-card"><div class="card-top"><span class="course-tag green-bg">' +
+            esc(test.course) +
+            '</span><div class="card-actions"><button class="text-button" data-edit-test="' +
+            test.id +
+            '">Edit</button><button class="text-button danger" data-delete-test="' +
+            test.id +
+            '">Delete</button></div></div><h2>' +
+            esc(test.title) +
+            "</h2><p>" +
+            esc(test.description || "No description provided.") +
+            "</p><dl><div><dt>Date</dt><dd>" +
+            date(test.date) +
+            "</dd></div><div><dt>Time</dt><dd>" +
+            esc(test.time || "No time specified") +
+            "</dd></div><div><dt>Room</dt><dd>" +
+            esc(test.room || "No room specified") +
+            "</dd></div><div><dt>Status</dt><dd>" +
+            esc(test.status || "Upcoming") +
+            '</dd></div></dl><p class="days-remaining">' +
+            relativeDate +
+            "</p></article>"
+          );
+        })
+        .join("")
+    : '<p class="empty-state">No tests yet.</p>';
 }
+
 function setupTests() {
   if (!document.getElementById("test-list")) return;
-  renderTests();
-  document.getElementById("test-form").onsubmit = (e) => {
-    e.preventDefault();
-    let x = get("tests");
-    x.push({
-      id: "t" + Date.now(),
+  const list = document.getElementById("test-list");
+  const legacyKey = userKey(K.tests);
+  const migrationKey = userKey("campusplan-tests-migrated");
+  const migrationProgressKey = userKey("campusplan-tests-migration-progress");
+  const showError = (message) => {
+    list.innerHTML =
+      '<p class="empty-state test-api-error">' +
+      esc(message) +
+      ' <button class="text-button" id="retry-tests" type="button">Retry</button></p>';
+    document.getElementById("retry-tests").onclick = loadTests;
+  };
+  const migrateLegacyTests = async () => {
+    if (localStorage.getItem(migrationKey)) return;
+    const raw = localStorage.getItem(legacyKey);
+    if (!raw) {
+      localStorage.setItem(migrationKey, "true");
+      return;
+    }
+    let legacyTests;
+    try {
+      legacyTests = JSON.parse(raw);
+    } catch (error) {
+      return;
+    }
+    if (!Array.isArray(legacyTests)) return;
+    const importedIds = new Set(
+      JSON.parse(localStorage.getItem(migrationProgressKey) || "[]"),
+    );
+    for (const test of legacyTests) {
+      if (importedIds.has(String(test.id))) continue;
+      await testRequest("", {
+        method: "POST",
+        body: JSON.stringify({
+          title: test.title,
+          course: test.course,
+          description: test.description || "",
+          date: test.date,
+          time: test.time || "",
+          room: test.room || "",
+          status: test.status || "Upcoming",
+        }),
+      });
+      importedIds.add(String(test.id));
+      localStorage.setItem(
+        migrationProgressKey,
+        JSON.stringify([...importedIds]),
+      );
+    }
+    localStorage.removeItem(legacyKey);
+    localStorage.removeItem(migrationProgressKey);
+    localStorage.setItem(migrationKey, "true");
+  };
+  async function loadTests() {
+    list.innerHTML = '<p class="empty-state">Loading tests...</p>';
+    try {
+      await migrateLegacyTests();
+      const result = await testRequest();
+      testStore = result.tests || [];
+      put("tests", testStore);
+      renderTests();
+    } catch (error) {
+      showError(
+        error.message === "Failed to fetch"
+          ? "Unable to connect to CampusPlan server."
+          : error.message,
+      );
+    }
+  }
+  loadTests();
+  document.getElementById("test-form").onsubmit = async (event) => {
+    event.preventDefault();
+    const id = document.getElementById("test-id").value;
+    const data = {
       title: document.getElementById("test-title").value.trim(),
       course: document.getElementById("test-course").value.trim(),
+      description: document.getElementById("test-description").value.trim(),
       date: document.getElementById("test-date").value,
       time: document.getElementById("test-time").value,
       room: document.getElementById("test-room").value.trim(),
-    });
-    put("tests", x);
-    e.target.reset();
-    document.getElementById("test-modal").hidden = true;
-    renderTests();
-  };
-  document.getElementById("test-list").onclick = (e) => {
-    if (e.target.dataset.deleteTest && confirm("Delete this test?")) {
-      put(
-        "tests",
-        get("tests").filter((x) => x.id !== e.target.dataset.deleteTest),
-      );
+      status: document.getElementById("test-status").value,
+    };
+    const submitButton = event.target.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+    try {
+      const result = await testRequest(id ? "/" + encodeURIComponent(id) : "", {
+        method: id ? "PUT" : "POST",
+        body: JSON.stringify(data),
+      });
+      testStore = id
+        ? testStore.map((test) => String(test.id) === String(id) ? result.test : test)
+        : [...testStore, result.test];
+      put("tests", testStore);
+      event.target.reset();
+      document.getElementById("test-id").value = "";
+      document.getElementById("test-modal-title").textContent = "Add test or exam";
+      document.getElementById("test-modal").hidden = true;
       renderTests();
+    } catch (error) {
+      showError(
+        error.message === "Failed to fetch"
+          ? "Unable to connect to CampusPlan server."
+          : error.message,
+      );
+    } finally {
+      submitButton.disabled = false;
     }
+  };
+  list.onclick = async (event) => {
+    const id = event.target.dataset.editTest || event.target.dataset.deleteTest;
+    if (!id) return;
+    if (event.target.dataset.deleteTest) {
+      if (!confirm("Delete this test?")) return;
+      try {
+        await testRequest("/" + encodeURIComponent(id), { method: "DELETE" });
+        testStore = testStore.filter((test) => String(test.id) !== String(id));
+        put("tests", testStore);
+        renderTests();
+      } catch (error) {
+        showError(error.message === "Failed to fetch" ? "Unable to connect to CampusPlan server." : error.message);
+      }
+      return;
+    }
+    const test = testStore.find((item) => String(item.id) === String(id));
+    if (!test) return;
+    document.getElementById("test-id").value = test.id;
+    document.getElementById("test-title").value = test.title;
+    document.getElementById("test-course").value = test.course;
+    document.getElementById("test-description").value = test.description || "";
+    document.getElementById("test-date").value = test.date;
+    document.getElementById("test-time").value = test.time || "";
+    document.getElementById("test-room").value = test.room || "";
+    document.getElementById("test-status").value = test.status || "Upcoming";
+    document.getElementById("test-modal-title").textContent = "Edit test or exam";
+    document.getElementById("test-modal").hidden = false;
   };
 }
 function renderPresentations() {
-  let l = document.getElementById("presentation-list");
-  if (!l) return;
-  l.innerHTML = get("presentations")
+  let list = document.getElementById("presentation-list");
+  if (!list) return;
+  list.innerHTML = get("presentations")
     .map(
       (x) =>
         '<article class="assignment-card presentation-card"><div class="card-top"><span class="course-tag purple-bg">' +
