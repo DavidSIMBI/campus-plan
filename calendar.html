@@ -47,6 +47,7 @@
           <button class="button secondary" type="button" id="calendar-next" aria-label="Next month">
             Next →
           </button>
+          <button class="button" type="button" data-open-modal="calendar-event-form-modal">Add Event</button>
         </div>
 
         <div class="calendar-month" id="calendar-month-label">September 2026</div>
@@ -69,6 +70,7 @@
           <span class="calendar-legend"><i style="background:#e1f6ee"></i> Test</span>
           <span class="calendar-legend"><i style="background:#f0ebff"></i> Presentation</span>
           <span class="calendar-legend"><i style="background:#fff4da"></i> Reminder</span>
+          <span class="calendar-legend"><i style="background:#e8f1e8"></i> Personal</span>
         </div>
       </section>
     </main>
@@ -87,6 +89,27 @@
           <div><dt>Priority</dt><dd id="calendar-event-priority">High</dd></div>
         </dl>
         <p id="calendar-event-description" class="empty-state"></p>
+        <div class="form-actions" id="calendar-event-actions"></div>
+      </section>
+    </div>
+
+    <div class="modal" id="calendar-event-form-modal" hidden>
+      <div class="modal-backdrop" data-close-modal></div>
+      <section class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="calendar-event-form-title">
+        <button class="modal-close" aria-label="Close event form" data-close-modal>&times;</button>
+        <h2 id="calendar-event-form-title">Add personal event</h2>
+        <form id="calendar-event-form" class="form-grid">
+          <input id="calendar-personal-id" type="hidden" />
+          <label class="full">Title<input id="calendar-personal-title" required /></label>
+          <label>Date<input id="calendar-personal-date" type="date" required /></label>
+          <label>Event type<select id="calendar-personal-type"><option>Personal</option><option>Study</option><option>Meeting</option><option>Other</option></select></label>
+          <label>Start time<input id="calendar-personal-start" type="time" /></label>
+          <label>End time<input id="calendar-personal-end" type="time" /></label>
+          <label>Priority<select id="calendar-personal-priority"><option>High</option><option selected>Medium</option><option>Low</option></select></label>
+          <label class="full">Description<textarea id="calendar-personal-description" rows="3"></textarea></label>
+          <p class="field-error full" id="calendar-personal-error" role="alert"></p>
+          <div class="form-actions full"><button class="button secondary" type="button" data-close-modal>Cancel</button><button class="button" type="submit">Save event</button></div>
+        </form>
       </section>
     </div>
 

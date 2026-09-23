@@ -1586,6 +1586,20 @@ function saveReminders(reminders) {
     JSON.stringify(reminders),
   );
 }
+function getPersonalCalendarEvents() {
+  const storageKey = userKey("campusplan-calendar-events");
+  const value = localStorage.getItem(storageKey);
+  if (value) return JSON.parse(value);
+  localStorage.setItem(storageKey, JSON.stringify([]));
+  return [];
+}
+
+function savePersonalCalendarEvents(events) {
+  localStorage.setItem(
+    userKey("campusplan-calendar-events"),
+    JSON.stringify(events),
+  );
+}
 
 function getNotifications() {
   const storageKey = userKey("campusplan-notifications");
@@ -1654,8 +1668,21 @@ function buildAcademicEventList() {
     priority: item.priority || "Medium",
     eventType: "reminder",
   }));
+  const personalEvents = getPersonalCalendarEvents().map((item) => ({
+    id: "personal-" + item.id,
+    title: item.title,
+    type: item.type || "Personal",
+    course: "Personal event",
+    date: item.date,
+    time: [item.startTime, item.endTime].filter(Boolean).join(" - "),
+    description: item.description || "Personal calendar event",
+    status: "Personal",
+    priority: item.priority || "Medium",
+    eventType: "personal",
+    personalEventId: item.id,
+  }));
 
-  return [...assignmentEvents, ...testEvents, ...presentationEvents, ...reminderEvents].sort(
+  return [...assignmentEvents, ...testEvents, ...presentationEvents, ...reminderEvents, ...personalEvents].sort(
     (a, b) => a.date.localeCompare(b.date),
   );
 }
@@ -1707,6 +1734,15 @@ function generateAcademicNotifications() {
         message = event.title + " is scheduled for today.";
       } else if (daysRemaining === 1) {
         message = event.title + " is due tomorrow.";
+      } else if (daysRemaining <= 7) {
+        message = event.title + " is in " + daysRemaining + " days.";
+      }
+    }
+    if (["Personal", "Study", "Meeting", "Other"].includes(event.type)) {
+      if (daysRemaining === 0) {
+        message = event.title + " is scheduled for today.";
+      } else if (daysRemaining === 1) {
+        message = event.title + " is tomorrow.";
       } else if (daysRemaining <= 7) {
         message = event.title + " is in " + daysRemaining + " days.";
       }
@@ -2006,8 +2042,11 @@ function renderCalendarPage() {
   }
 
   while (days.length % 7 !== 0) {
-    const date = new Date(monthEnd);
-    date.setDate(monthEnd.getDate() + (days.length % 7 === 0 ? 0 : 1));
+    const date = new Date(
+      monthValue.getFullYear(),
+      monthValue.getMonth() + 1,
+      days.length - startingIndex - monthEnd.getDate() + 1,
+    );
     days.push({ date, otherMonth: true });
   }
 
@@ -2104,8 +2143,157 @@ function openEventModal(event) {
     description.textContent = event.description || "No description available.";
   if (status) status.textContent = event.status || "Scheduled";
   if (priority) priority.textContent = event.priority || "Medium";
+  const actions = document.getElementById("calendar-event-actions");
+  if (actions) {
+    actions.innerHTML = event.eventType === "personal"
+      ? '<button class="button secondary" type="button" id="calendar-event-edit">Edit</button><button class="button danger-button" type="button" id="calendar-event-delete">Delete</button>'
+      : '<span class="event-source-note">Managed from ' + esc(event.type === "Assignment" ? "Assignments" : event.type === "Test" ? "Tests" : event.type === "Presentation" ? "Presentations" : "Reminders") + "</span>";
+    if (event.eventType === "personal") {
+      document.getElementById("calendar-event-edit").onclick = () => openPersonalEventForm(event.personalEventId);
+      document.getElementById("calendar-event-delete").onclick = () => {
+        if (!confirm("Delete this personal event?")) return;
+        savePersonalCalendarEvents(getPersonalCalendarEvents().filter((item) => item.id !== event.personalEventId));
+        modal.hidden = true;
+        renderCalendarPage();
+        generateAcademicNotifications();
+      };
+    }
+  }
 
   modal.hidden = false;
+}
+
+function openPersonalEventForm(eventId) {
+  const event = getPersonalCalendarEvents().find((item) => item.id === eventId);
+  const form = document.getElementById("calendar-event-form");
+  if (!form) return;
+  document.getElementById("calendar-event-form-title").textContent = event ? "Edit personal event" : "Add personal event";
+  document.getElementById("calendar-personal-id").value = event ? event.id : "";
+  document.getElementById("calendar-personal-title").value = event ? event.title : "";
+  document.getElementById("calendar-personal-date").value = event ? event.date : "";
+  document.getElementById("calendar-personal-start").value = event ? event.startTime || "" : "";
+  document.getElementById("calendar-personal-end").value = event ? event.endTime || "" : "";
+  document.getElementById("calendar-personal-type").value = event ? event.type || "Personal" : "Personal";
+  document.getElementById("calendar-personal-priority").value = event ? event.priority || "Medium" : "Medium";
+  document.getElementById("calendar-personal-description").value = event ? event.description || "" : "";
+  document.getElementById("calendar-personal-error").textContent = "";
+  if (eventId) document.getElementById("calendar-event-modal").hidden = true;
+  document.getElementById("calendar-event-form-modal").hidden = false;
+  document.getElementById("calendar-personal-title").focus();
+}
+
+function setupPersonalCalendarEvents() {
+  const form = document.getElementById("calendar-event-form");
+  if (!form) return;
+  document.querySelector('[data-open-modal="calendar-event-form-modal"]').onclick = () => openPersonalEventForm();
+  form.onsubmit = (event) => {
+    event.preventDefault();
+    const startTime = document.getElementById("calendar-personal-start").value;
+    const endTime = document.getElementById("calendar-personal-end").value;
+    const error = document.getElementById("calendar-personal-error");
+    if (endTime && !startTime) {
+      error.textContent = "Add a start time before setting an end time.";
+      return;
+    }
+    if (startTime && endTime && endTime <= startTime) {
+      error.textContent = "End time must be after the start time.";
+      return;
+    }
+    const currentUserRecord = currentUser();
+    const item = {
+      id: document.getElementById("calendar-personal-id").value || "event-" + Date.now(),
+      studentId: currentUserRecord.studentId,
+      title: document.getElementById("calendar-personal-title").value.trim(),
+      date: document.getElementById("calendar-personal-date").value,
+      startTime,
+      endTime,
+      type: document.getElementById("calendar-personal-type").value,
+      priority: document.getElementById("calendar-personal-priority").value,
+      description: document.getElementById("calendar-personal-description").value.trim(),
+    };
+    const events = getPersonalCalendarEvents();
+    const index = events.findIndex((savedEvent) => savedEvent.id === item.id);
+    if (index === -1) events.push(item);
+    else events[index] = item;
+    savePersonalCalendarEvents(events);
+    generateAcademicNotifications();
+    form.reset();
+    document.getElementById("calendar-event-form-modal").hidden = true;
+    renderCalendarPage();
+  };
+}
+
+function getTimetableEntries() {
+  const storageKey = userKey("campusplan-timetable");
+  const value = localStorage.getItem(storageKey);
+  if (value) return JSON.parse(value);
+  const currentUserRecord = currentUser();
+  const initialEntries = [
+    { id: "class-database-morning", courseName: "Database Systems", day: "Monday", startTime: "09:00", endTime: "11:00", room: "B204" },
+    { id: "class-database-wednesday", courseName: "Database Systems", day: "Wednesday", startTime: "09:00", endTime: "11:00", room: "B204" },
+    { id: "class-networks-friday", courseName: "Networks", day: "Friday", startTime: "09:00", endTime: "11:00", room: "C12" },
+    { id: "class-hci-tuesday", courseName: "HCI", day: "Tuesday", startTime: "11:00", endTime: "13:00", room: "A102" },
+    { id: "class-networks-wednesday", courseName: "Networks", day: "Wednesday", startTime: "11:00", endTime: "13:00", room: "C12" },
+    { id: "class-statistics-monday", courseName: "Statistics I", day: "Monday", startTime: "14:00", endTime: "16:00", room: "A105" },
+    { id: "class-statistics-wednesday", courseName: "Statistics I", day: "Wednesday", startTime: "14:00", endTime: "16:00", room: "A105" },
+    { id: "class-hci-thursday", courseName: "HCI", day: "Thursday", startTime: "14:00", endTime: "16:00", room: "A102" },
+  ].map((entry) => ({ ...entry, studentId: currentUserRecord.studentId, courseCode: "", lecturer: "", notes: "" }));
+  localStorage.setItem(storageKey, JSON.stringify(initialEntries));
+  return initialEntries;
+}
+
+function saveTimetableEntries(entries) {
+  localStorage.setItem(userKey("campusplan-timetable"), JSON.stringify(entries));
+}
+
+function setupTimetable() {
+  if (document.body.dataset.page !== "timetable") return;
+  const list = document.getElementById("timetable-list");
+  const form = document.getElementById("timetable-form");
+  const daysOfWeek = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+  const fields = ["course", "code", "day", "start", "end", "room", "lecturer", "notes"];
+  function render() {
+    const entries = getTimetableEntries().sort((a, b) => daysOfWeek.indexOf(a.day) - daysOfWeek.indexOf(b.day) || a.startTime.localeCompare(b.startTime));
+    list.innerHTML = entries.length ? daysOfWeek.map((day) => {
+      const dayEntries = entries.filter((entry) => entry.day === day);
+      if (!dayEntries.length) return "";
+      return '<section class="timetable-day"><h2>' + day + '</h2><div class="timetable-day-entries">' + dayEntries.map((entry) => '<article class="timetable-class"><div><time>' + entry.startTime + " - " + entry.endTime + '</time><h3>' + esc(entry.courseName) + '</h3><p>' + esc([entry.courseCode, entry.room].filter(Boolean).join(" · ") || "No room specified") + '</p>' + (entry.lecturer ? '<small>Lecturer: ' + esc(entry.lecturer) + '</small>' : "") + '</div><div class="card-actions"><button class="text-button" data-edit-class="' + entry.id + '">Edit</button><button class="text-button danger" data-delete-class="' + entry.id + '">Delete</button></div></article>').join("") + '</div></section>';
+    }).join("") : '<div class="panel timetable-empty"><h2>No classes added yet.</h2><p>Add your weekly classes to build your timetable.</p><button class="button" type="button" data-open-modal="timetable-modal">Add Class</button></div>';
+    modal();
+  }
+  function editEntry(entry) {
+    document.getElementById("timetable-modal-title").textContent = "Edit class";
+    document.getElementById("timetable-id").value = entry.id;
+    ["courseName", "courseCode", "day", "startTime", "endTime", "room", "lecturer", "notes"].forEach((key, index) => document.getElementById("timetable-" + fields[index]).value = entry[key] || "");
+    document.getElementById("timetable-error").textContent = "";
+    document.getElementById("timetable-modal").hidden = false;
+  }
+  list.onclick = (event) => {
+    const editId = event.target.dataset.editClass;
+    const deleteId = event.target.dataset.deleteClass;
+    const entries = getTimetableEntries();
+    if (editId) editEntry(entries.find((entry) => entry.id === editId));
+    if (deleteId && confirm("Delete this class from your timetable?")) saveTimetableEntries(entries.filter((entry) => entry.id !== deleteId));
+    if (deleteId) render();
+  };
+  form.onsubmit = (event) => {
+    event.preventDefault();
+    const startTime = document.getElementById("timetable-start").value;
+    const endTime = document.getElementById("timetable-end").value;
+    const error = document.getElementById("timetable-error");
+    if (endTime <= startTime) { error.textContent = "End time must be after the start time."; return; }
+    const item = { id: document.getElementById("timetable-id").value || "class-" + Date.now(), studentId: currentUser().studentId, courseName: document.getElementById("timetable-course").value.trim(), courseCode: document.getElementById("timetable-code").value.trim(), day: document.getElementById("timetable-day").value, startTime, endTime, room: document.getElementById("timetable-room").value.trim(), lecturer: document.getElementById("timetable-lecturer").value.trim(), notes: document.getElementById("timetable-notes").value.trim() };
+    const entries = getTimetableEntries();
+    const index = entries.findIndex((entry) => entry.id === item.id);
+    if (index === -1) entries.push(item); else entries[index] = item;
+    saveTimetableEntries(entries);
+    form.reset();
+    document.getElementById("timetable-id").value = "";
+    document.getElementById("timetable-modal-title").textContent = "Add class";
+    document.getElementById("timetable-modal").hidden = true;
+    render();
+  };
+  render();
 }
 
 function setupCalendarPage() {
@@ -2152,6 +2340,7 @@ function setupReminderAndCalendar() {
   generateAcademicNotifications();
   setupNotifications();
   setupReminderForm();
+  setupPersonalCalendarEvents();
   setupCalendarPage();
   renderDashboardReminders();
   renderCalendarPreview();
@@ -2173,5 +2362,6 @@ document.addEventListener("DOMContentLoaded", () => {
   dashboard();
   setupMessagesV2();
   setupGroupsV2();
+  setupTimetable();
   setupReminderAndCalendar();
 });

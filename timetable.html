@@ -13,7 +13,7 @@
     />
     <link rel="stylesheet" href="css/style.css" />
   </head>
-  <body>
+  <body data-page="timetable">
     <header class="site-header">
       <a class="brand" href="index.html">Campus<span>Plan</span></a
       ><button
@@ -43,49 +43,32 @@
           <h1>Timetable</h1>
           <p>16 – 20 September 2026</p>
         </div>
-        <button
-          class="button secondary"
-          data-demo="Your timetable has been refreshed."
-        >
-          ↻ Refresh
+        <button class="button" type="button" data-open-modal="timetable-modal">
+          Add Class
         </button>
       </section>
-      <div class="timetable" role="table">
-        <div class="time-head"></div>
-        <div class="day-head">Mon <b>14</b></div>
-        <div class="day-head">Tue <b>15</b></div>
-        <div class="day-head today">Wed <b>16</b></div>
-        <div class="day-head">Thu <b>17</b></div>
-        <div class="day-head">Fri <b>18</b></div>
-        <div class="time">09:00</div>
-        <div class="class database" style="grid-column: 2; grid-row: 2">
-          Database Systems<br /><small>B204</small>
-        </div>
-        <div class="class stats" style="grid-column: 4; grid-row: 2">
-          Database Systems<br /><small>B204</small>
-        </div>
-        <div class="class networks" style="grid-column: 6; grid-row: 2">
-          Networks<br /><small>C12</small>
-        </div>
-        <div class="time">11:00</div>
-        <div class="class hci" style="grid-column: 3; grid-row: 3">
-          HCI<br /><small>A102</small>
-        </div>
-        <div class="class networks" style="grid-column: 4; grid-row: 3">
-          Networks<br /><small>C12</small>
-        </div>
-        <div class="time">14:00</div>
-        <div class="class stats" style="grid-column: 2; grid-row: 4">
-          Statistics I<br /><small>A105</small>
-        </div>
-        <div class="class stats" style="grid-column: 4; grid-row: 4">
-          Statistics I<br /><small>A105</small>
-        </div>
-        <div class="class hci" style="grid-column: 5; grid-row: 4">
-          HCI<br /><small>A102</small>
-        </div>
-      </div>
+      <section id="timetable-list" class="timetable-list" aria-live="polite"></section>
     </main>
+    <div class="modal" id="timetable-modal" hidden>
+      <div class="modal-backdrop" data-close-modal></div>
+      <section class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="timetable-modal-title">
+        <button class="modal-close" aria-label="Close class form" data-close-modal>&times;</button>
+        <h2 id="timetable-modal-title">Add class</h2>
+        <form id="timetable-form" class="form-grid">
+          <input id="timetable-id" type="hidden" />
+          <label class="full">Course/Module name<input id="timetable-course" required /></label>
+          <label>Course code<input id="timetable-code" /></label>
+          <label>Day<select id="timetable-day" required><option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option><option>Sunday</option></select></label>
+          <label>Start time<input id="timetable-start" type="time" required /></label>
+          <label>End time<input id="timetable-end" type="time" required /></label>
+          <label>Room<input id="timetable-room" /></label>
+          <label>Lecturer<input id="timetable-lecturer" /></label>
+          <label class="full">Notes<textarea id="timetable-notes" rows="3"></textarea></label>
+          <p class="field-error full" id="timetable-error" role="alert"></p>
+          <div class="form-actions full"><button class="button secondary" type="button" data-close-modal>Cancel</button><button class="button" type="submit">Save class</button></div>
+        </form>
+      </section>
+    </div>
     <script src="js/script.js"></script>
   </body>
 </html>

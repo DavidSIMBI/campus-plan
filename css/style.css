@@ -744,6 +744,65 @@ textarea:focus-visible {
   border-right: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
 }
+.timetable-list {
+  display: grid;
+  gap: 18px;
+}
+.timetable-day {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.timetable-day h2 {
+  margin: 0;
+  padding: 15px 18px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-alt);
+  font-size: 16px;
+}
+.timetable-day-entries {
+  display: grid;
+}
+.timetable-class {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--line);
+}
+.timetable-class:last-child {
+  border-bottom: 0;
+}
+.timetable-class time {
+  display: block;
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 700;
+}
+.timetable-class h3 {
+  margin: 3px 0 2px;
+  font-size: 15px;
+}
+.timetable-class p,
+.timetable-class small {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.timetable-empty {
+  padding: 40px 20px;
+  text-align: center;
+}
+.timetable-empty h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.timetable-empty p {
+  margin: 8px 0 18px;
+  color: var(--muted);
+}
 .day-head {
   padding: 14px;
   text-align: center;
@@ -1264,6 +1323,15 @@ textarea:focus-visible {
   .timetable {
     border-radius: 10px;
   }
+  .timetable-class {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .timetable-class .card-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
   .messaging-layout {
     grid-template-columns: 1fr;
   }
@@ -1733,6 +1801,18 @@ textarea:focus-visible {
 .calendar-event-pill.reminder {
   background: #fff4da;
   color: #a05d11;
+}
+.calendar-event-pill.personal {
+  background: #e8f1e8;
+  color: #347044;
+}
+.event-source-note {
+  margin-right: auto;
+  color: var(--muted);
+  font-size: 12px;
+}
+.danger-button {
+  background: #b74740;
 }
 .calendar-event-list {
   display: flex;
