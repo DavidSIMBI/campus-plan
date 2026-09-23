@@ -1,6 +1,6 @@
 # CampusPlan Authentication Backend
 
-This is the first backend milestone for CampusPlan. It handles student registration, login, JWT authentication, and the current student's safe profile. Assignments, tests, timetable, calendar, messaging, and other academic data remain in the existing frontend localStorage prototype.
+This backend milestone handles student registration, login, JWT authentication, the current student's safe profile, and assignments. Tests, timetable, calendar, messaging, groups, notifications, reminders, and other academic data remain in the existing frontend localStorage prototype.
 
 ## 1. Install dependencies
 
@@ -24,7 +24,7 @@ On Windows PowerShell, if input redirection is unavailable in your shell, open M
 SOURCE C:/Users/TechMedia/Desktop/Campusplan project/server/database.sql;
 ```
 
-The script creates the `campusplan` database and only the initial `users` table.
+The script creates the `campusplan` database, keeps the existing `users` table, and adds the user-owned `assignments` table if it does not exist. It does not reset existing data.
 
 ## 3. Configure environment variables
 
@@ -55,10 +55,19 @@ http://localhost:5000/api/health
 - `POST /api/auth/register`: creates a student account and hashes the password with bcrypt.
 - `POST /api/auth/login`: accepts an email or student ID plus password and returns a JWT.
 - `GET /api/auth/me`: returns the safe profile for a valid `Authorization: Bearer <token>` request.
+- `GET /api/assignments`: returns assignments owned by the authenticated student.
+- `POST /api/assignments`: creates an assignment for the authenticated student.
+- `GET /api/assignments/:id`: returns one owned assignment.
+- `PUT /api/assignments/:id`: updates one owned assignment.
+- `DELETE /api/assignments/:id`: deletes one owned assignment.
 
 ## 6. Frontend connection
 
-The existing `login.html` and `register.html` forms still use their original IDs and layout. `js/script.js` sends their data to `http://localhost:5000/api/auth`. The JWT is stored in `campusplan_auth_token` for this local development prototype, and the existing session key is retained for the rest of the frontend pages.
+The existing `login.html` and `register.html` forms still use their original IDs and layout. `js/script.js` sends their data to `http://localhost:5000/api/auth` and the assignments page sends authenticated requests to `http://localhost:5000/api/assignments`. The JWT is stored in `campusplan_auth_token` for this local development prototype, and the existing session key is retained for the rest of the frontend pages.
+
+### Existing local assignments
+
+When an authenticated student opens Assignments for the first time, any existing assignments under that student's old localStorage key are uploaded one by one. The old key is removed only after every upload and the first backend load succeeds. If the server or database is unavailable, the old local data is left untouched so it can be retried safely.
 
 If the API is not running, the frontend temporarily falls back to its previous localStorage authentication so the rest of the prototype remains usable. This fallback should be removed when the backend is permanently available.
 

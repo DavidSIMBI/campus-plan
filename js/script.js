@@ -3,7 +3,9 @@ const USER_KEY = "campusplan-users",
   SESSION_KEY = "campusplan-current-user";
 const AUTH_TOKEN_KEY = "campusplan_auth_token";
 const AUTH_API_BASE = "http://localhost:5000/api/auth";
+const ASSIGNMENTS_API_BASE = "http://localhost:5000/api/assignments";
 const THEME_KEY = "campusplan_theme";
+let assignmentStore = [];
 function applyTheme(theme) {
   const nextTheme = theme === "dark" ? "dark" : "light";
   document.documentElement.dataset.theme = nextTheme;
@@ -56,6 +58,26 @@ async function authRequest(path, options = {}) {
   if (!response.ok) {
     throw new Error(body.message || "Authentication request failed.");
   }
+  return body;
+}
+async function assignmentRequest(path = "", options = {}) {
+  const token = localStorage.getItem(AUTH_TOKEN_KEY);
+  const response = await fetch(ASSIGNMENTS_API_BASE + path, {
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: "Bearer " + token } : {}),
+      ...(options.headers || {}),
+    },
+    ...options,
+  });
+  const body = await response.json().catch(() => ({}));
+  if (response.status === 401) {
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+    localStorage.removeItem(SESSION_KEY);
+    location.replace("login.html?notice=session-expired");
+    throw new Error("Your session has expired. Please log in again.");
+  }
+  if (!response.ok) throw new Error(body.message || "Assignment request failed.");
   return body;
 }
 function frontendUser(apiUser) {
@@ -284,7 +306,7 @@ function modal() {
 function renderAssignments() {
   let list = document.getElementById("assignment-list");
   if (!list) return;
-  let all = get("assignments"),
+  let all = assignmentStore,
     q = document.getElementById("assignment-search").value.toLowerCase(),
     c = document.getElementById("course-filter"),
     s = document.getElementById("status-filter").value,
@@ -345,7 +367,61 @@ function renderAssignments() {
 }
 function setupAssignments() {
   if (!document.getElementById("assignment-list")) return;
-  renderAssignments();
+  const list = document.getElementById("assignment-list");
+  const resultCount = document.getElementById("assignment-result-count");
+  const legacyKey = userKey(K.assignments);
+  const migrationKey = userKey("campusplan-assignments-migrated");
+  const showError = (message) => {
+    resultCount.textContent = "";
+    list.innerHTML =
+      '<p class="empty-state assignment-api-error">' +
+      esc(message) +
+      ' <button class="text-button" id="retry-assignments" type="button">Retry</button></p>';
+    document.getElementById("retry-assignments").onclick = loadAssignments;
+  };
+  const migrateLegacyAssignments = async () => {
+    if (localStorage.getItem(migrationKey)) return;
+    const raw = localStorage.getItem(legacyKey);
+    if (!raw) {
+      localStorage.setItem(migrationKey, "true");
+      return;
+    }
+    let legacyAssignments;
+    try {
+      legacyAssignments = JSON.parse(raw);
+    } catch (error) {
+      return;
+    }
+    if (!Array.isArray(legacyAssignments)) return;
+    for (const assignment of legacyAssignments) {
+      await assignmentRequest("", {
+        method: "POST",
+        body: JSON.stringify({
+          title: assignment.title,
+          course: assignment.course,
+          description: assignment.description || "No description provided.",
+          dueDate: assignment.dueDate,
+          priority: assignment.priority,
+          status: assignment.status,
+        }),
+      });
+    }
+    localStorage.removeItem(legacyKey);
+    localStorage.setItem(migrationKey, "true");
+  };
+  async function loadAssignments() {
+    list.innerHTML = '<p class="empty-state">Loading assignments...</p>';
+    resultCount.textContent = "";
+    try {
+      await migrateLegacyAssignments();
+      const result = await assignmentRequest();
+      assignmentStore = result.assignments || [];
+      renderAssignments();
+    } catch (error) {
+      showError(error.message === "Failed to fetch" ? "Unable to connect to CampusPlan server." : error.message);
+    }
+  }
+  loadAssignments();
   [
     "assignment-search",
     "course-filter",
@@ -354,11 +430,10 @@ function setupAssignments() {
   ].forEach((id) =>
     document.getElementById(id).addEventListener("input", renderAssignments),
   );
-  document.getElementById("assignment-form").onsubmit = (e) => {
+  document.getElementById("assignment-form").onsubmit = async (e) => {
     e.preventDefault();
     let id = document.getElementById("assignment-id").value,
       x = {
-        id: id || "a" + Date.now(),
         title: document.getElementById("assignment-title").value.trim(),
         course: document.getElementById("assignment-course").value.trim(),
         description: document
@@ -367,36 +442,62 @@ function setupAssignments() {
         dueDate: document.getElementById("assignment-date").value,
         priority: document.getElementById("assignment-priority").value,
         status: document.getElementById("assignment-status").value,
-      },
-      all = get("assignments"),
-      i = all.findIndex((a) => a.id === id);
-    i < 0 ? all.push(x) : (all[i] = x);
-    put("assignments", all);
-    e.target.reset();
-    document.getElementById("assignment-id").value = "";
-    document.getElementById("assignment-modal").hidden = true;
-    renderAssignments();
+      };
+    const submitButton = e.target.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+    try {
+      const result = await assignmentRequest(id ? "/" + encodeURIComponent(id) : "", {
+        method: id ? "PUT" : "POST",
+        body: JSON.stringify(x),
+      });
+      if (id) {
+        assignmentStore = assignmentStore.map((assignment) =>
+          String(assignment.id) === String(id) ? result.assignment : assignment,
+        );
+      } else {
+        assignmentStore.push(result.assignment);
+      }
+      e.target.reset();
+      document.getElementById("assignment-id").value = "";
+      document.getElementById("assignment-modal").hidden = true;
+      document.getElementById("assignment-modal-title").textContent = "Add assignment";
+      renderAssignments();
+    } catch (error) {
+      showError(error.message === "Failed to fetch" ? "Unable to connect to CampusPlan server." : error.message);
+    } finally {
+      submitButton.disabled = false;
+    }
   };
-  document.getElementById("assignment-list").onclick = (e) => {
-    let id =
-        e.target.dataset.edit ||
-        e.target.dataset.delete ||
-        e.target.dataset.complete,
-      all = get("assignments");
+  document.getElementById("assignment-list").onclick = async (e) => {
+    let id = e.target.dataset.edit || e.target.dataset.delete || e.target.dataset.complete;
     if (!id) return;
     if (e.target.dataset.delete) {
-      if (confirm("Delete this assignment?"))
-        put(
-          "assignments",
-          all.filter((x) => x.id !== id),
+      if (!confirm("Delete this assignment?")) return;
+      try {
+        await assignmentRequest("/" + encodeURIComponent(id), { method: "DELETE" });
+        assignmentStore = assignmentStore.filter((assignment) => String(assignment.id) !== String(id));
+        renderAssignments();
+      } catch (error) {
+        showError(error.message === "Failed to fetch" ? "Unable to connect to CampusPlan server." : error.message);
+      }
+    } else if (e.target.dataset.complete) {
+      const assignment = assignmentStore.find((item) => String(item.id) === String(id));
+      if (!assignment) return;
+      try {
+        const result = await assignmentRequest("/" + encodeURIComponent(id), {
+          method: "PUT",
+          body: JSON.stringify({ ...assignment, status: "Completed" }),
+        });
+        assignmentStore = assignmentStore.map((item) =>
+          String(item.id) === String(id) ? result.assignment : item,
         );
-    } else if (e.target.dataset.complete)
-      put(
-        "assignments",
-        all.map((x) => (x.id === id ? { ...x, status: "Completed" } : x)),
-      );
-    else {
-      let x = all.find((x) => x.id === id);
+        renderAssignments();
+      } catch (error) {
+        showError(error.message === "Failed to fetch" ? "Unable to connect to CampusPlan server." : error.message);
+      }
+    } else {
+      let x = assignmentStore.find((assignment) => String(assignment.id) === String(id));
+      if (!x) return;
       [
         "id",
         "title",
@@ -413,7 +514,6 @@ function setupAssignments() {
         "Edit assignment";
       document.getElementById("assignment-modal").hidden = false;
     }
-    renderAssignments();
   };
 }
 function renderTests() {
@@ -540,10 +640,21 @@ function setupPresentations() {
     }
   };
 }
-function dashboard() {
+async function dashboard() {
   if (document.body.dataset.page !== "dashboard") return;
-  let a = get("assignments"),
-    t = get("tests"),
+  let a;
+  if (localStorage.getItem(AUTH_TOKEN_KEY)) {
+    try {
+      const result = await assignmentRequest();
+      a = result.assignments || [];
+      assignmentStore = a;
+    } catch (error) {
+      a = get("assignments");
+    }
+  } else {
+    a = get("assignments");
+  }
+  let t = get("tests"),
     p = get("presentations"),
     done = a.filter((x) => x.status === "Completed").length,
     pc = a.length ? Math.round((done / a.length) * 100) : 0,
