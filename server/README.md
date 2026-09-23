@@ -1,6 +1,6 @@
 # CampusPlan Authentication Backend
 
-This backend milestone handles student registration, login, JWT authentication, the current student's safe profile, assignments, tests, presentations, timetable, and personal calendar events. Messaging, groups, notifications, reminders, and other academic data remain in the existing frontend localStorage prototype.
+This backend milestone handles student registration, login, JWT authentication, the current student's safe profile, assignments, tests, presentations, timetable, personal calendar events, and private messages. Groups, notifications, reminders, and other academic data remain in the existing frontend localStorage prototype.
 
 ## 1. Install dependencies
 
@@ -74,6 +74,18 @@ Or from the MySQL client:
 SOURCE C:/Users/TechMedia/Desktop/Campusplan project/server/database_calendar.sql;
 ```
 
+Add the private Messages table without resetting existing data:
+
+```powershell
+mysql -u root -p campusplan < database_messages.sql
+```
+
+Or from the MySQL client:
+
+```sql
+SOURCE C:/Users/TechMedia/Desktop/Campusplan project/server/database_messages.sql;
+```
+
 ## 3. Configure environment variables
 
 Copy `.env.example` to `.env` and set the MySQL username/password and a private development JWT secret:
@@ -128,6 +140,11 @@ http://localhost:5000/api/health
 - `GET /api/calendar/:id`: returns one owned personal event.
 - `PUT /api/calendar/:id`: updates one owned personal event.
 - `DELETE /api/calendar/:id`: deletes one owned personal event.
+- `GET /api/messages/students?search=...`: searches safe student profiles.
+- `GET /api/messages/conversations`: lists the authenticated student's private conversations.
+- `GET /api/messages/:userId`: loads the private conversation with one student.
+- `POST /api/messages/:userId`: sends a message to one student.
+- `PUT /api/messages/:userId/read`: marks received messages from one student as read.
 
 ## 6. Frontend connection
 
@@ -139,6 +156,6 @@ When an authenticated student opens Assignments for the first time, any existing
 
 If the API is not running, the frontend temporarily falls back to its previous localStorage authentication so the rest of the prototype remains usable. This fallback should be removed when the backend is permanently available.
 
-When an authenticated student opens Tests, Presentations, Timetable, or Calendar for the first time, old records under that student's localStorage key are uploaded only after the API is reachable. Each module tracks migration progress so interrupted imports can resume without duplicating completed records. Calendar reads Assignments, Tests, and Presentations from their existing APIs and stores only personal events in `calendar_events`; academic records are never copied into the Calendar table.
+When an authenticated student opens Tests, Presentations, Timetable, or Calendar for the first time, old records under that student's localStorage key are uploaded only after the API is reachable. Each module tracks migration progress so interrupted imports can resume without duplicating completed records. Calendar reads Assignments, Tests, and Presentations from their existing APIs and stores only personal events in `calendar_events`; academic records are never copied into the Calendar table. Existing private message localStorage records are preserved but are not automatically migrated because their old name-based identifiers cannot be safely mapped to MySQL user IDs.
 
 Run the frontend with Live Server, commonly at `http://localhost:5500`, and ensure that origin is listed in `FRONTEND_ORIGINS`.

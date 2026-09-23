@@ -8,6 +8,7 @@ const TESTS_API_BASE = "http://localhost:5000/api/tests";
 const PRESENTATIONS_API_BASE = "http://localhost:5000/api/presentations";
 const TIMETABLE_API_BASE = "http://localhost:5000/api/timetable";
 const CALENDAR_API_BASE = "http://localhost:5000/api/calendar";
+const MESSAGES_API_BASE = "http://localhost:5000/api/messages";
 const THEME_KEY = "campusplan_theme";
 let assignmentStore = [];
 let testStore = [];
@@ -170,6 +171,26 @@ async function calendarRequest(path = "", options = {}) {
   if (!response.ok) throw new Error(body.message || "Calendar request failed.");
   return body;
 }
+async function messagesRequest(path = "", options = {}) {
+  const token = localStorage.getItem(AUTH_TOKEN_KEY);
+  const response = await fetch(MESSAGES_API_BASE + path, {
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: "Bearer " + token } : {}),
+      ...(options.headers || {}),
+    },
+    ...options,
+  });
+  const body = await response.json().catch(() => ({}));
+  if (response.status === 401) {
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+    localStorage.removeItem(SESSION_KEY);
+    location.replace("login.html?notice=session-expired");
+    throw new Error("Your session has expired. Please log in again.");
+  }
+  if (!response.ok) throw new Error(body.message || "Messages request failed.");
+  return body;
+}
 function frontendUser(apiUser) {
   return {
     id: apiUser.id,
@@ -329,6 +350,13 @@ function avatarMarkup(studentId, extraClass) {
         '">' +
         esc(initials(profile.name)) +
         "</span>";
+}
+function profileAvatarMarkup(profile, extraClass) {
+  const className = ["avatar", extraClass || ""].filter(Boolean).join(" ");
+  if (profile && profile.photo) {
+    return '<img class="' + className + ' avatar-photo" src="' + esc(profile.photo) + '" alt="' + esc(profile.name || profile.fullName || "Student") + ' profile photo">';
+  }
+  return '<span class="' + className + '" aria-label="' + esc(profile?.name || profile?.fullName || "Student") + '">' + esc(initials(profile?.name || profile?.fullName)) + "</span>";
 }
 function groupAvatarMarkup(group, extraClass) {
   const className = ["avatar", "group-avatar", extraClass || ""]
@@ -1328,222 +1356,174 @@ function markCommunicationNotificationsRead(eventKeys) {
 function setupMessagesV2() {
   if (document.body.dataset.page !== "messages") return;
   const me = currentUser();
-  const oldKey = userKey("campusplan-chats");
-  const storageKey = userKey("campusplan-conversations");
-  let saved = localStorage.getItem(storageKey);
-  let conversations = saved ? JSON.parse(saved) : null;
-  if (!conversations) {
-    const oldChats = JSON.parse(localStorage.getItem(oldKey) || "[]");
-    conversations = oldChats.map((chat) => ({
-      id: "conversation-" + chat.id,
-      participantId: chat.id === "sarah" ? "sarah-m" : chat.id,
-      messages: (chat.messages || []).map((message, index) => ({
-        id: "legacy-message-" + index,
-        senderId: message.from === "David" ? me.studentId : "sarah-m",
-        conversationId: "conversation-" + chat.id,
-        text: message.text,
-        timestamp: new Date().toISOString(),
-        read: !chat.unread,
-      })),
-    }));
-  }
-  if (!conversations.length) conversations = [];
-  let activeId = conversations[0] ? conversations[0].id : null;
   const list = document.getElementById("conversation-list");
   const search = document.getElementById("student-search");
   const results = document.getElementById("student-results");
+  let conversations = [];
+  let activeUserId = null;
+  let activeUser = null;
+  let activeMessages = [];
+  const profiles = new Map();
 
-  function save() {
-    localStorage.setItem(storageKey, JSON.stringify(conversations));
+  function rememberProfile(profile) {
+    if (!profile) return;
+    profiles.set(String(profile.id), profile);
+    if (profile.studentId) profiles.set(String(profile.studentId), profile);
   }
-  function participant(conversation) {
-    return getUserProfile(conversation.participantId) || {
-      name: "Student",
-      studentId: conversation.participantId,
-    };
+  function profileFor(id) {
+    return profiles.get(String(id)) || getUserProfile(id) || { name: "Student", studentId: id };
+  }
+  function avatarFor(profile, extraClass) {
+    if (!profile || (!profile.id && !profile.studentId)) return avatarMarkup("unknown", extraClass);
+    return profileAvatarMarkup(profile, extraClass);
   }
   function renderList() {
-    const query = search.value.trim().toLowerCase();
-    const visible = conversations.filter((conversation) => {
-      const profile = participant(conversation);
-      return (profile.name + " " + profile.studentId)
-        .toLowerCase()
-        .includes(query);
-    });
-    list.innerHTML = visible.length
-      ? visible
-          .map((conversation) => {
-            const profile = participant(conversation);
-            const last = conversation.messages[conversation.messages.length - 1];
-            const unread = conversation.messages.filter(
-              (message) => message.senderId !== me.studentId && !message.read,
-            ).length;
-            return (
-              '<article class="conversation ' +
-              (conversation.id === activeId ? "active" : "") +
-              '" data-conversation-id="' +
-              conversation.id +
-              '">' +
-              avatarMarkup(profile.studentId) +
-              '<div class="conversation-copy"><h3>' +
-              esc(profile.name) +
-              '</h3><p>' +
-              esc(last ? last.text : "No messages yet") +
-              '</p></div><div class="conversation-meta"><time>' +
-              (last ? formatMessageTime(last.timestamp) : "") +
-              '</time>' +
-              (unread ? '<b class="unread" aria-label="' + unread + ' unread">' + unread + "</b>" : "") +
-              '</div><button class="conversation-delete" data-delete-conversation="' +
-              conversation.id +
-              '" aria-label="Delete conversation">&times;</button></article>'
-            );
-          })
-          .join("")
-      : '<p class="empty-state">No conversations found.</p>';
+    list.innerHTML = conversations.length
+      ? conversations.map((conversation) => {
+          const profile = conversation.user;
+          rememberProfile(profile);
+          return '<article class="conversation ' +
+            (String(profile.id) === String(activeUserId) ? "active" : "") +
+            '" data-conversation-user="' + profile.id + '">' +
+            avatarFor(profile) +
+            '<div class="conversation-copy"><h3>' + esc(profile.fullName) + '</h3><p>' +
+            esc(conversation.latestMessage || "No messages yet") +
+            '</p></div><div class="conversation-meta"><time>' +
+            (conversation.latestMessageAt ? formatMessageTime(conversation.latestMessageAt) : "") +
+            '</time>' +
+            (conversation.unreadCount ? '<b class="unread" aria-label="' + conversation.unreadCount + ' unread">' + conversation.unreadCount + "</b>" : "") +
+            '</div></article>';
+        }).join("")
+      : '<p class="empty-state">No conversations yet.</p>';
   }
   function renderChat() {
     const chat = document.getElementById("private-chat");
-    const conversation = conversations.find((item) => item.id === activeId);
-    if (!conversation) {
+    if (!activeUser) {
       chat.classList.remove("has-conversation");
-      document.getElementById("private-messages").innerHTML =
-        '<p class="empty-state chat-empty">Select a student to start messaging.</p>';
+      document.getElementById("private-messages").innerHTML = '<p class="empty-state chat-empty">Select a student to start messaging.</p>';
       return;
     }
     chat.classList.add("has-conversation");
-    const profile = participant(conversation);
-    const chatAvatar = avatarMarkup(profile.studentId).replace(
-      /<(img|span) /,
-      '<$1 id="chat-avatar" ',
-    );
+    rememberProfile(activeUser);
+    const chatAvatar = avatarFor(activeUser).replace(/<(img|span) /, '<$1 id="chat-avatar" ');
     document.getElementById("chat-avatar").outerHTML = chatAvatar;
-    document.getElementById("chat-name").textContent = profile.name;
+    document.getElementById("chat-name").textContent = activeUser.fullName;
     document.getElementById("chat-status").textContent = "CampusPlan student";
-    const messageList = document.getElementById("private-messages");
-    messageList.innerHTML = conversation.messages.length
-      ? conversation.messages
-          .map(
-            (message) =>
-              '<div class="message-row ' +
-              (message.senderId === me.studentId ? "sent-row" : "received-row") +
-              '">' +
-              avatarMarkup(message.senderId) +
-              '<div class="bubble ' +
-              (message.senderId === me.studentId ? "sent" : "received") +
-              '"><span>' +
-              esc(message.text) +
-              '</span><time>' +
-              formatMessageTime(message.timestamp) +
-              (message.senderId === me.studentId ? (message.read ? " · Read" : " · Sent") : "") +
-              "</time></div></div>",
-          )
-          .join("")
+    document.getElementById("private-messages").innerHTML = activeMessages.length
+      ? activeMessages.map((message) => {
+          const sender = String(message.senderId) === String(me.id) ? me : profileFor(message.senderId);
+          return '<div class="message-row ' + (String(message.senderId) === String(me.id) ? "sent-row" : "received-row") + '">' +
+            avatarFor(sender) + '<div class="bubble ' + (String(message.senderId) === String(me.id) ? "sent" : "received") + '"><span>' +
+            esc(message.content) + '</span><time>' + formatMessageTime(message.createdAt) +
+            (String(message.senderId) === String(me.id) ? (message.read ? " · Read" : " · Sent") : "") +
+            "</time></div></div>";
+        }).join("")
       : '<p class="empty-state chat-empty">No messages yet. Start the conversation.</p>';
-    const readKeys = conversation.messages
-      .filter((message) => message.senderId !== me.studentId && !message.read)
-      .map((message) => "message:" + conversation.id + ":" + message.id);
-    conversation.messages.forEach((message) => {
-      if (message.senderId !== me.studentId) message.read = true;
-    });
-    markCommunicationNotificationsRead(readKeys);
-    save();
-    renderList();
-    renderNotificationList();
   }
-  function openConversation(participantId) {
-    let conversation = conversations.find((item) => item.participantId === participantId);
-    if (!conversation) {
-      conversation = {
-        id: "conversation-" + me.studentId + "-" + participantId,
-        participantId,
-        messages: [],
-      };
-      conversations.push(conversation);
+  async function loadConversations() {
+    try {
+      const result = await messagesRequest("/conversations");
+      conversations = result.conversations || [];
+      conversations.forEach((conversation) => rememberProfile(conversation.user));
+      renderList();
+    } catch (error) {
+      list.innerHTML = '<p class="empty-state">' + esc(error.message === "Failed to fetch" ? "Unable to connect to CampusPlan server." : error.message) + "</p>";
     }
-    activeId = conversation.id;
-    renderList();
-    renderChat();
-    document.getElementById("private-chat").classList.add("mobile-open");
   }
-  function renderSearchResults() {
-    const query = search.value.trim().toLowerCase();
+  async function openConversation(userId, profile) {
+    activeUserId = Number(userId);
+    activeUser = profile || profileFor(userId);
+    rememberProfile(activeUser);
+    try {
+      const result = await messagesRequest("/" + encodeURIComponent(userId));
+      activeUser = result.user;
+      activeMessages = result.messages || [];
+      rememberProfile(activeUser);
+      await messagesRequest("/" + encodeURIComponent(userId) + "/read", { method: "PUT" });
+      const summary = conversations.find((conversation) => String(conversation.user.id) === String(userId));
+      if (summary) summary.unreadCount = 0;
+      renderList();
+      renderChat();
+      document.getElementById("private-chat").classList.add("mobile-open");
+    } catch (error) {
+      document.getElementById("private-messages").innerHTML = '<p class="empty-state">' + esc(error.message === "Failed to fetch" ? "Unable to connect to CampusPlan server." : error.message) + "</p>";
+    }
+  }
+  async function renderSearchResults() {
+    const query = search.value.trim();
     if (!query) {
       results.innerHTML = "";
       return;
     }
-    const people = students
-      .filter((student) => student.studentId !== me.studentId)
-      .filter((student) =>
-        (student.name + " " + student.studentId + " " + student.email)
-          .toLowerCase()
-          .includes(query),
-      );
-    results.innerHTML = people.length
-      ? people
-          .map(
-            (student) =>
-              '<button class="student-result" type="button" data-start="' +
-              student.studentId +
-              '">' +
-              avatarMarkup(student.studentId) +
-              '<span><b>' +
-              esc(student.name) +
-              '</b><small>' +
-              esc(student.studentId + " · " + student.program + " · " + student.year) +
-              "</small></span></button>",
-          )
-          .join("")
-      : '<p class="empty-state">No students found.</p>';
+    try {
+      const result = await messagesRequest("/students?search=" + encodeURIComponent(query));
+      const people = result.students || [];
+      people.forEach(rememberProfile);
+      results.innerHTML = people.length
+        ? people.map((student) => '<button class="student-result" type="button" data-start="' + student.id + '">' + avatarFor(student) + '<span><b>' + esc(student.fullName) + '</b><small>' + esc(student.studentId + " · " + student.program + " · " + student.yearOfStudy) + '</small></span></button>').join("")
+        : '<p class="empty-state">No students found.</p>';
+    } catch (error) {
+      results.innerHTML = '<p class="empty-state">' + esc(error.message) + "</p>";
+    }
   }
-  search.oninput = () => {
-    renderSearchResults();
-    renderList();
-  };
+  async function loadStudentOptions() {
+    try {
+      const result = await messagesRequest("/students");
+      const people = result.students || [];
+      people.forEach(rememberProfile);
+      document.getElementById("new-message-student").innerHTML = people.map((student) => '<option value="' + student.id + '">' + esc(student.fullName) + "</option>").join("");
+    } catch (error) {
+      document.getElementById("new-message-student").innerHTML = '<option value="">Unable to load students</option>';
+    }
+  }
+  search.oninput = renderSearchResults;
   results.onclick = (event) => {
     const button = event.target.closest("[data-start]");
-    if (button) openConversation(button.dataset.start);
+    if (button) openConversation(button.dataset.start, profileFor(button.dataset.start));
   };
   list.onclick = (event) => {
-    const deleteButton = event.target.closest("[data-delete-conversation]");
-    if (deleteButton) {
-      conversations = conversations.filter((item) => item.id !== deleteButton.dataset.deleteConversation);
-      if (activeId === deleteButton.dataset.deleteConversation) activeId = null;
-      save();
-      renderList();
-      renderChat();
-      return;
-    }
-    const item = event.target.closest("[data-conversation-id]");
-    if (item) openConversation(participant(conversations.find((conversation) => conversation.id === item.dataset.conversationId)).studentId);
+    const item = event.target.closest("[data-conversation-user]");
+    if (item) openConversation(item.dataset.conversationUser, profileFor(item.dataset.conversationUser));
   };
-  document.getElementById("private-form").onsubmit = (event) => {
+  document.getElementById("private-form").onsubmit = async (event) => {
     event.preventDefault();
     const input = document.getElementById("private-input");
-    const text = input.value.trim();
-    const conversation = conversations.find((item) => item.id === activeId);
-    if (!conversation || !text) return;
-    conversation.messages.push({
-      id: "message-" + Date.now(),
-      senderId: me.studentId,
-      conversationId: conversation.id,
-      text,
-      timestamp: new Date().toISOString(),
-      read: true,
-    });
-    input.value = "";
-    save();
-    renderChat();
+    const content = input.value.trim();
+    if (!activeUserId || !content) return;
+    if (content.length > 2000) {
+      input.setCustomValidity("Messages must be 2000 characters or fewer.");
+      input.reportValidity();
+      return;
+    }
+    try {
+      const result = await messagesRequest("/" + encodeURIComponent(activeUserId), { method: "POST", body: JSON.stringify({ content }) });
+      activeMessages.push(result.message);
+      input.value = "";
+      renderChat();
+      await loadConversations();
+      activeUserId = activeUser.id;
+    } catch (error) {
+      input.setCustomValidity(error.message);
+      input.reportValidity();
+    }
   };
-  document.getElementById("back-to-list").onclick = () =>
-    document.getElementById("private-chat").classList.remove("mobile-open");
+  document.getElementById("new-message-form").onsubmit = async (event) => {
+    event.preventDefault();
+    const userId = document.getElementById("new-message-student").value;
+    const text = document.getElementById("new-message-text").value.trim();
+    if (!userId || !text) return;
+    document.getElementById("new-message-modal").hidden = true;
+    document.getElementById("new-message-text").value = "";
+    await openConversation(userId, profileFor(userId));
+    document.getElementById("private-input").value = text;
+    document.getElementById("private-form").requestSubmit();
+  };
+  document.getElementById("back-to-list").onclick = () => document.getElementById("private-chat").classList.remove("mobile-open");
   document.getElementById("clear-conversation").onclick = () => {
-    const conversation = conversations.find((item) => item.id === activeId);
-    if (conversation) conversation.messages = [];
-    save();
-    renderChat();
+    document.getElementById("private-messages").innerHTML = '<p class="empty-state">Conversation history is stored on the server.</p>';
   };
-  syncCommunicationNotifications(conversations, []);
-  renderList();
+  loadStudentOptions();
+  loadConversations();
   renderChat();
 }
 

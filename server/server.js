@@ -8,6 +8,7 @@ const testRoutes = require("./routes/testRoutes");
 const presentationRoutes = require("./routes/presentationRoutes");
 const timetableRoutes = require("./routes/timetableRoutes");
 const calendarRoutes = require("./routes/calendarRoutes");
+const messageRoutes = require("./routes/messageRoutes");
 
 const app = express();
 const port = Number(process.env.PORT || 5000);
@@ -35,6 +36,7 @@ app.use("/api/tests", testRoutes);
 app.use("/api/presentations", presentationRoutes);
 app.use("/api/timetable", timetableRoutes);
 app.use("/api/calendar", calendarRoutes);
+app.use("/api/messages", messageRoutes);
 
 app.use((error, req, res, next) => {
   if (error.message === "Origin is not allowed by CORS.") {
