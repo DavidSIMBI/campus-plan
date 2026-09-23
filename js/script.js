@@ -16,15 +16,22 @@ function setupTheme() {
   toggle.type = "button";
   toggle.id = "theme-toggle";
   toggle.className = "theme-toggle";
-  toggle.setAttribute("aria-label", "Switch color theme");
-  toggle.innerHTML = '<span class="theme-toggle-label">' + (currentTheme === "dark" ? "Dark" : "Light") + "</span>";
+  const renderToggle = (theme) => {
+    const dark = theme === "dark";
+    toggle.setAttribute("aria-label", dark ? "Switch to light mode" : "Switch to dark mode");
+    toggle.setAttribute("aria-pressed", String(dark));
+    toggle.innerHTML = dark
+      ? '<span class="theme-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M20.6 15.2A8.5 8.5 0 0 1 8.8 3.4 8.5 8.5 0 1 0 20.6 15.2Z"></path></svg></span>'
+      : '<span class="theme-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path></svg></span>';
+  };
+  renderToggle(currentTheme);
   const header = document.querySelector(".site-header");
   const authCard = document.querySelector(".auth-card");
   if (header) header.insertBefore(toggle, header.querySelector(".profile") || null);
   else if (authCard) authCard.appendChild(toggle);
   toggle.onclick = () => {
     const nextTheme = applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
-    toggle.querySelector(".theme-toggle-label").textContent = nextTheme === "dark" ? "Dark" : "Light";
+    renderToggle(nextTheme);
   };
 }
 function currentUser() {
