@@ -62,9 +62,12 @@
         </button>
         <h2 id="presentation-modal-title">Add presentation</h2>
         <form id="presentation-form" class="form-grid">
+          <input type="hidden" id="presentation-id" />
           <label
             >Presentation title<input id="presentation-title" required /></label
           ><label>Course<input id="presentation-course" required /></label
+          ><label class="full"
+            >Description<textarea id="presentation-description" rows="3"></textarea></label
           ><label
             >Date<input id="presentation-date" type="date" required /></label
           ><label

@@ -1,6 +1,6 @@
 # CampusPlan Authentication Backend
 
-This backend milestone handles student registration, login, JWT authentication, the current student's safe profile, assignments, and tests. Timetable, calendar, messaging, groups, notifications, reminders, and other academic data remain in the existing frontend localStorage prototype.
+This backend milestone handles student registration, login, JWT authentication, the current student's safe profile, assignments, tests, and presentations. Timetable, calendar, messaging, groups, notifications, reminders, and other academic data remain in the existing frontend localStorage prototype.
 
 ## 1. Install dependencies
 
@@ -36,6 +36,18 @@ Or from the MySQL client:
 
 ```sql
 SOURCE C:/Users/TechMedia/Desktop/Campusplan project/server/database_tests.sql;
+```
+
+Add the Presentations table without resetting existing data:
+
+```powershell
+mysql -u root -p campusplan < database_presentations.sql
+```
+
+Or from the MySQL client:
+
+```sql
+SOURCE C:/Users/TechMedia/Desktop/Campusplan project/server/database_presentations.sql;
 ```
 
 ## 3. Configure environment variables
@@ -77,6 +89,11 @@ http://localhost:5000/api/health
 - `GET /api/tests/:id`: returns one owned test.
 - `PUT /api/tests/:id`: updates one owned test.
 - `DELETE /api/tests/:id`: deletes one owned test.
+- `GET /api/presentations`: returns presentations owned by the authenticated student.
+- `POST /api/presentations`: creates a presentation for the authenticated student.
+- `GET /api/presentations/:id`: returns one owned presentation.
+- `PUT /api/presentations/:id`: updates one owned presentation.
+- `DELETE /api/presentations/:id`: deletes one owned presentation.
 
 ## 6. Frontend connection
 
@@ -88,6 +105,6 @@ When an authenticated student opens Assignments for the first time, any existing
 
 If the API is not running, the frontend temporarily falls back to its previous localStorage authentication so the rest of the prototype remains usable. This fallback should be removed when the backend is permanently available.
 
-When an authenticated student opens Tests for the first time, old tests under that student's localStorage key are uploaded only after the API is reachable. The old key is removed only after every import succeeds. A local compatibility cache is refreshed after successful API reads so the existing Calendar view can continue using its current frontend data path until Calendar is migrated.
+When an authenticated student opens Tests or Presentations for the first time, old records under that student's localStorage key are uploaded only after the API is reachable. Each old key is removed only after every import succeeds. A local compatibility cache is refreshed after successful API reads so the existing Calendar view can continue using its current frontend data path until Calendar is migrated.
 
 Run the frontend with Live Server, commonly at `http://localhost:5500`, and ensure that origin is listed in `FRONTEND_ORIGINS`.

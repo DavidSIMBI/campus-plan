@@ -5,9 +5,11 @@ const AUTH_TOKEN_KEY = "campusplan_auth_token";
 const AUTH_API_BASE = "http://localhost:5000/api/auth";
 const ASSIGNMENTS_API_BASE = "http://localhost:5000/api/assignments";
 const TESTS_API_BASE = "http://localhost:5000/api/tests";
+const PRESENTATIONS_API_BASE = "http://localhost:5000/api/presentations";
 const THEME_KEY = "campusplan_theme";
 let assignmentStore = [];
 let testStore = [];
+let presentationStore = [];
 function applyTheme(theme) {
   const nextTheme = theme === "dark" ? "dark" : "light";
   document.documentElement.dataset.theme = nextTheme;
@@ -100,6 +102,26 @@ async function testRequest(path = "", options = {}) {
     throw new Error("Your session has expired. Please log in again.");
   }
   if (!response.ok) throw new Error(body.message || "Test request failed.");
+  return body;
+}
+async function presentationRequest(path = "", options = {}) {
+  const token = localStorage.getItem(AUTH_TOKEN_KEY);
+  const response = await fetch(PRESENTATIONS_API_BASE + path, {
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: "Bearer " + token } : {}),
+      ...(options.headers || {}),
+    },
+    ...options,
+  });
+  const body = await response.json().catch(() => ({}));
+  if (response.status === 401) {
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+    localStorage.removeItem(SESSION_KEY);
+    location.replace("login.html?notice=session-expired");
+    throw new Error("Your session has expired. Please log in again.");
+  }
+  if (!response.ok) throw new Error(body.message || "Presentation request failed.");
   return body;
 }
 function frontendUser(apiUser) {
@@ -724,7 +746,9 @@ function setupTests() {
 function renderPresentations() {
   let list = document.getElementById("presentation-list");
   if (!list) return;
-  list.innerHTML = get("presentations")
+  list.innerHTML = presentationStore
+    .slice()
+    .sort((a, b) => a.date.localeCompare(b.date))
     .map(
       (x) =>
         '<article class="assignment-card presentation-card"><div class="card-top"><span class="course-tag purple-bg">' +
@@ -741,7 +765,11 @@ function renderPresentations() {
         esc(x.group) +
         "</dd></div><div><dt>My part</dt><dd>" +
         esc(x.part) +
-        '</dd></div></dl><label class="status-update">Preparation status<select data-p-status="' +
+        '</dd></div></dl><div class="card-actions presentation-actions"><button class="text-button" data-edit-presentation="' +
+        x.id +
+        '">Edit</button><button class="text-button danger" data-delete-presentation="' +
+        x.id +
+        '">Delete</button></div><label class="status-update">Preparation status<select data-p-status="' +
         x.id +
         '">' +
         ["Not Started", "Preparing", "Ready", "Completed"]
@@ -760,34 +788,143 @@ function renderPresentations() {
 }
 function setupPresentations() {
   if (!document.getElementById("presentation-list")) return;
-  renderPresentations();
-  document.getElementById("presentation-form").onsubmit = (e) => {
+  const list = document.getElementById("presentation-list");
+  const legacyKey = userKey(K.presentations);
+  const migrationKey = userKey("campusplan-presentations-migrated");
+  const showError = (message) => {
+    list.innerHTML =
+      '<p class="empty-state presentation-api-error">' +
+      esc(message) +
+      ' <button class="text-button" id="retry-presentations" type="button">Retry</button></p>';
+    document.getElementById("retry-presentations").onclick = loadPresentations;
+  };
+  const migrateLegacyPresentations = async () => {
+    if (localStorage.getItem(migrationKey)) return;
+    const raw = localStorage.getItem(legacyKey);
+    if (!raw) {
+      localStorage.setItem(migrationKey, "true");
+      return;
+    }
+    let legacyPresentations;
+    try {
+      legacyPresentations = JSON.parse(raw);
+    } catch (error) {
+      return;
+    }
+    if (!Array.isArray(legacyPresentations)) return;
+    const importedIdsKey = userKey("campusplan-presentations-migration-progress");
+    const importedIds = new Set(JSON.parse(localStorage.getItem(importedIdsKey) || "[]"));
+    for (const presentation of legacyPresentations) {
+      if (importedIds.has(String(presentation.id))) continue;
+      await presentationRequest("", {
+        method: "POST",
+        body: JSON.stringify({
+          title: presentation.title,
+          course: presentation.course,
+          description: presentation.description || "",
+          date: presentation.date,
+          group: presentation.group || "",
+          part: presentation.part || "",
+          status: presentation.status || "Not Started",
+        }),
+      });
+      importedIds.add(String(presentation.id));
+      localStorage.setItem(importedIdsKey, JSON.stringify([...importedIds]));
+    }
+    localStorage.removeItem(legacyKey);
+    localStorage.removeItem(importedIdsKey);
+    localStorage.setItem(migrationKey, "true");
+  };
+  async function loadPresentations() {
+    list.innerHTML = '<p class="empty-state">Loading presentations...</p>';
+    try {
+      await migrateLegacyPresentations();
+      const result = await presentationRequest();
+      presentationStore = result.presentations || [];
+      put("presentations", presentationStore);
+      renderPresentations();
+    } catch (error) {
+      showError(error.message === "Failed to fetch" ? "Unable to connect to CampusPlan server." : error.message);
+    }
+  }
+  loadPresentations();
+  document.getElementById("presentation-form").onsubmit = async (e) => {
     e.preventDefault();
-    let x = get("presentations");
-    x.push({
-      id: "p" + Date.now(),
+    const id = document.getElementById("presentation-id").value;
+    const data = {
       title: document.getElementById("presentation-title").value.trim(),
       course: document.getElementById("presentation-course").value.trim(),
+      description: document.getElementById("presentation-description").value.trim(),
       date: document.getElementById("presentation-date").value,
       group: document.getElementById("presentation-group").value.trim(),
       part: document.getElementById("presentation-part").value.trim(),
       status: document.getElementById("presentation-status").value,
-    });
-    put("presentations", x);
-    e.target.reset();
-    document.getElementById("presentation-modal").hidden = true;
-    renderPresentations();
-  };
-  document.getElementById("presentation-list").onchange = (e) => {
-    let id = e.target.dataset.pStatus;
-    if (id) {
-      put(
-        "presentations",
-        get("presentations").map((x) =>
-          x.id === id ? { ...x, status: e.target.value } : x,
-        ),
-      );
+    };
+    const submitButton = e.target.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+    try {
+      const result = await presentationRequest(id ? "/" + encodeURIComponent(id) : "", {
+        method: id ? "PUT" : "POST",
+        body: JSON.stringify(data),
+      });
+      presentationStore = id
+        ? presentationStore.map((presentation) => String(presentation.id) === String(id) ? result.presentation : presentation)
+        : [...presentationStore, result.presentation];
+      put("presentations", presentationStore);
+      e.target.reset();
+      document.getElementById("presentation-id").value = "";
+      document.getElementById("presentation-modal-title").textContent = "Add presentation";
+      document.getElementById("presentation-modal").hidden = true;
       renderPresentations();
+    } catch (error) {
+      showError(error.message === "Failed to fetch" ? "Unable to connect to CampusPlan server." : error.message);
+    } finally {
+      submitButton.disabled = false;
+    }
+  };
+  list.onclick = async (event) => {
+    const id = event.target.dataset.editPresentation || event.target.dataset.deletePresentation;
+    if (!id) return;
+    if (event.target.dataset.deletePresentation) {
+      if (!confirm("Delete this presentation?")) return;
+      try {
+        await presentationRequest("/" + encodeURIComponent(id), { method: "DELETE" });
+        presentationStore = presentationStore.filter((presentation) => String(presentation.id) !== String(id));
+        put("presentations", presentationStore);
+        renderPresentations();
+      } catch (error) {
+        showError(error.message === "Failed to fetch" ? "Unable to connect to CampusPlan server." : error.message);
+      }
+      return;
+    }
+    const presentation = presentationStore.find((item) => String(item.id) === String(id));
+    if (!presentation) return;
+    document.getElementById("presentation-id").value = presentation.id;
+    document.getElementById("presentation-title").value = presentation.title;
+    document.getElementById("presentation-course").value = presentation.course;
+    document.getElementById("presentation-description").value = presentation.description || "";
+    document.getElementById("presentation-date").value = presentation.date;
+    document.getElementById("presentation-group").value = presentation.group || "";
+    document.getElementById("presentation-part").value = presentation.part || "";
+    document.getElementById("presentation-status").value = presentation.status || "Not Started";
+    document.getElementById("presentation-modal-title").textContent = "Edit presentation";
+    document.getElementById("presentation-modal").hidden = false;
+  };
+  list.onchange = async (event) => {
+    const id = event.target.dataset.pStatus;
+    if (!id) return;
+    const presentation = presentationStore.find((item) => String(item.id) === String(id));
+    if (!presentation) return;
+    try {
+      const result = await presentationRequest("/" + encodeURIComponent(id), {
+        method: "PUT",
+        body: JSON.stringify({ ...presentation, status: event.target.value }),
+      });
+      presentationStore = presentationStore.map((item) => String(item.id) === String(id) ? result.presentation : item);
+      put("presentations", presentationStore);
+      renderPresentations();
+    } catch (error) {
+      showError(error.message === "Failed to fetch" ? "Unable to connect to CampusPlan server." : error.message);
     }
   };
 }
