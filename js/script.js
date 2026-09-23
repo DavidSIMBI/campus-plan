@@ -7,11 +7,15 @@ const ASSIGNMENTS_API_BASE = "http://localhost:5000/api/assignments";
 const TESTS_API_BASE = "http://localhost:5000/api/tests";
 const PRESENTATIONS_API_BASE = "http://localhost:5000/api/presentations";
 const TIMETABLE_API_BASE = "http://localhost:5000/api/timetable";
+const CALENDAR_API_BASE = "http://localhost:5000/api/calendar";
 const THEME_KEY = "campusplan_theme";
 let assignmentStore = [];
 let testStore = [];
 let presentationStore = [];
 let timetableStore = [];
+let calendarPersonalStore = [];
+let calendarAcademicStore = { assignments: null, tests: null, presentations: null };
+let calendarDataLoaded = false;
 function applyTheme(theme) {
   const nextTheme = theme === "dark" ? "dark" : "light";
   document.documentElement.dataset.theme = nextTheme;
@@ -144,6 +148,26 @@ async function timetableRequest(path = "", options = {}) {
     throw new Error("Your session has expired. Please log in again.");
   }
   if (!response.ok) throw new Error(body.message || "Timetable request failed.");
+  return body;
+}
+async function calendarRequest(path = "", options = {}) {
+  const token = localStorage.getItem(AUTH_TOKEN_KEY);
+  const response = await fetch(CALENDAR_API_BASE + path, {
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: "Bearer " + token } : {}),
+      ...(options.headers || {}),
+    },
+    ...options,
+  });
+  const body = await response.json().catch(() => ({}));
+  if (response.status === 401) {
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+    localStorage.removeItem(SESSION_KEY);
+    location.replace("login.html?notice=session-expired");
+    throw new Error("Your session has expired. Please log in again.");
+  }
+  if (!response.ok) throw new Error(body.message || "Calendar request failed.");
   return body;
 }
 function frontendUser(apiUser) {
@@ -2059,6 +2083,7 @@ function saveReminders(reminders) {
   );
 }
 function getPersonalCalendarEvents() {
+  if (calendarDataLoaded) return calendarPersonalStore;
   const storageKey = userKey("campusplan-calendar-events");
   const value = localStorage.getItem(storageKey);
   if (value) return JSON.parse(value);
@@ -2067,10 +2092,69 @@ function getPersonalCalendarEvents() {
 }
 
 function savePersonalCalendarEvents(events) {
+  calendarPersonalStore = events;
   localStorage.setItem(
     userKey("campusplan-calendar-events"),
     JSON.stringify(events),
   );
+}
+
+async function loadCalendarData() {
+  if (document.body.dataset.page !== "calendar") return;
+  const legacyKey = userKey("campusplan-calendar-events");
+  const migrationKey = userKey("campusplan-calendar-events-migrated");
+  const progressKey = userKey("campusplan-calendar-events-migration-progress");
+  try {
+    if (!localStorage.getItem(migrationKey)) {
+      const raw = localStorage.getItem(legacyKey);
+      if (raw) {
+        const legacyEvents = JSON.parse(raw);
+        const importedIds = new Set(JSON.parse(localStorage.getItem(progressKey) || "[]"));
+        for (const event of Array.isArray(legacyEvents) ? legacyEvents : []) {
+          if (importedIds.has(String(event.id))) continue;
+          await calendarRequest("", {
+            method: "POST",
+            body: JSON.stringify({
+              title: event.title,
+              date: event.date,
+              startTime: event.startTime || "",
+              endTime: event.endTime || "",
+              description: event.description || "",
+              priority: event.priority || "Medium",
+              type: event.type || "Personal",
+            }),
+          });
+          importedIds.add(String(event.id));
+          localStorage.setItem(progressKey, JSON.stringify([...importedIds]));
+        }
+        localStorage.removeItem(progressKey);
+      }
+      localStorage.setItem(migrationKey, "true");
+    }
+    const [assignments, tests, presentations, personal] = await Promise.all([
+      assignmentRequest(),
+      testRequest(),
+      presentationRequest(),
+      calendarRequest(),
+    ]);
+    calendarAcademicStore.assignments = assignments.assignments || [];
+    calendarAcademicStore.tests = tests.tests || [];
+    calendarAcademicStore.presentations = presentations.presentations || [];
+    calendarPersonalStore = personal.events || [];
+    calendarDataLoaded = true;
+    localStorage.setItem(legacyKey, JSON.stringify(calendarPersonalStore));
+    renderCalendarPage();
+    renderDashboardReminders();
+    renderCalendarPreview();
+  } catch (error) {
+    calendarDataLoaded = false;
+    const grid = document.getElementById("calendar-grid");
+    if (grid) grid.setAttribute("aria-busy", "false");
+    if (error.message !== "Failed to fetch") {
+      const notice = document.getElementById("calendar-load-error");
+      if (notice) notice.textContent = error.message;
+    }
+  }
 }
 
 function getNotifications() {
@@ -2089,7 +2173,7 @@ function saveNotifications(notifications) {
 }
 
 function buildAcademicEventList() {
-  const assignmentEvents = get("assignments").map((item) => ({
+  const assignmentEvents = (calendarAcademicStore.assignments || get("assignments")).map((item) => ({
     id: "assignment-" + item.id,
     title: item.title,
     type: "Assignment",
@@ -2102,7 +2186,7 @@ function buildAcademicEventList() {
     eventType: "assignment",
   }));
 
-  const testEvents = get("tests").map((item) => ({
+  const testEvents = (calendarAcademicStore.tests || get("tests")).map((item) => ({
     id: "test-" + item.id,
     title: item.title,
     type: "Test",
@@ -2115,7 +2199,7 @@ function buildAcademicEventList() {
     eventType: "test",
   }));
 
-  const presentationEvents = get("presentations").map((item) => ({
+  const presentationEvents = (calendarAcademicStore.presentations || get("presentations")).map((item) => ({
     id: "presentation-" + item.id,
     title: item.title,
     type: "Presentation",
@@ -2624,10 +2708,17 @@ function openEventModal(event) {
       document.getElementById("calendar-event-edit").onclick = () => openPersonalEventForm(event.personalEventId);
       document.getElementById("calendar-event-delete").onclick = () => {
         if (!confirm("Delete this personal event?")) return;
-        savePersonalCalendarEvents(getPersonalCalendarEvents().filter((item) => item.id !== event.personalEventId));
-        modal.hidden = true;
-        renderCalendarPage();
-        generateAcademicNotifications();
+        calendarRequest("/" + encodeURIComponent(event.personalEventId), { method: "DELETE" })
+          .then(() => {
+            savePersonalCalendarEvents(getPersonalCalendarEvents().filter((item) => String(item.id) !== String(event.personalEventId)));
+            modal.hidden = true;
+            renderCalendarPage();
+            generateAcademicNotifications();
+          })
+          .catch((error) => {
+            const notice = document.getElementById("calendar-event-description");
+            if (notice) notice.textContent = error.message;
+          });
       };
     }
   }
@@ -2658,7 +2749,7 @@ function setupPersonalCalendarEvents() {
   const form = document.getElementById("calendar-event-form");
   if (!form) return;
   document.querySelector('[data-open-modal="calendar-event-form-modal"]').onclick = () => openPersonalEventForm();
-  form.onsubmit = (event) => {
+  form.onsubmit = async (event) => {
     event.preventDefault();
     const startTime = document.getElementById("calendar-personal-start").value;
     const endTime = document.getElementById("calendar-personal-end").value;
@@ -2671,10 +2762,8 @@ function setupPersonalCalendarEvents() {
       error.textContent = "End time must be after the start time.";
       return;
     }
-    const currentUserRecord = currentUser();
+    const id = document.getElementById("calendar-personal-id").value;
     const item = {
-      id: document.getElementById("calendar-personal-id").value || "event-" + Date.now(),
-      studentId: currentUserRecord.studentId,
       title: document.getElementById("calendar-personal-title").value.trim(),
       date: document.getElementById("calendar-personal-date").value,
       startTime,
@@ -2683,15 +2772,27 @@ function setupPersonalCalendarEvents() {
       priority: document.getElementById("calendar-personal-priority").value,
       description: document.getElementById("calendar-personal-description").value.trim(),
     };
-    const events = getPersonalCalendarEvents();
-    const index = events.findIndex((savedEvent) => savedEvent.id === item.id);
-    if (index === -1) events.push(item);
-    else events[index] = item;
-    savePersonalCalendarEvents(events);
-    generateAcademicNotifications();
-    form.reset();
-    document.getElementById("calendar-event-form-modal").hidden = true;
-    renderCalendarPage();
+    const submitButton = form.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+    try {
+      const result = await calendarRequest(id ? "/" + encodeURIComponent(id) : "", {
+        method: id ? "PUT" : "POST",
+        body: JSON.stringify(item),
+      });
+      const events = getPersonalCalendarEvents().slice();
+      const index = events.findIndex((savedEvent) => String(savedEvent.id) === String(id));
+      if (index === -1) events.push(result.event);
+      else events[index] = result.event;
+      savePersonalCalendarEvents(events);
+      generateAcademicNotifications();
+      form.reset();
+      document.getElementById("calendar-event-form-modal").hidden = true;
+      renderCalendarPage();
+    } catch (requestError) {
+      error.textContent = requestError.message === "Failed to fetch" ? "Unable to connect to CampusPlan server." : requestError.message;
+    } finally {
+      submitButton.disabled = false;
+    }
   };
 }
 
@@ -2853,6 +2954,7 @@ function setupReminderAndCalendar() {
   setupReminderForm();
   setupPersonalCalendarEvents();
   setupCalendarPage();
+  loadCalendarData();
   renderDashboardReminders();
   renderCalendarPreview();
 }
