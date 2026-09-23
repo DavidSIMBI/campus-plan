@@ -1,6 +1,8 @@
 // Prototype only: production authentication needs a backend, hashed passwords, secure sessions/tokens, and database storage.
 const USER_KEY = "campusplan-users",
   SESSION_KEY = "campusplan-current-user";
+const AUTH_TOKEN_KEY = "campusplan_auth_token";
+const AUTH_API_BASE = "http://localhost:5000/api/auth";
 const THEME_KEY = "campusplan_theme";
 function applyTheme(theme) {
   const nextTheme = theme === "dark" ? "dark" : "light";
@@ -44,6 +46,28 @@ function currentUser() {
 function userKey(key) {
   const user = currentUser();
   return key + "_" + encodeURIComponent(user ? user.studentId : "guest");
+}
+async function authRequest(path, options = {}) {
+  const response = await fetch(AUTH_API_BASE + path, {
+    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+    ...options,
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(body.message || "Authentication request failed.");
+  }
+  return body;
+}
+function frontendUser(apiUser) {
+  return {
+    id: apiUser.id,
+    name: apiUser.fullName,
+    studentId: apiUser.studentId,
+    email: apiUser.email,
+    institution: apiUser.institution,
+    program: apiUser.program,
+    year: apiUser.yearOfStudy,
+  };
 }
 if (
   !["login.html", "register.html"].includes(
@@ -1360,7 +1384,7 @@ function setupAuth() {
     ).get("notice")
       ? "Please log in to access CampusPlan."
       : "";
-    login.onsubmit = (e) => {
+    login.onsubmit = async (e) => {
       e.preventDefault();
       let id = document
           .getElementById("login-identity")
@@ -1373,20 +1397,30 @@ function setupAuth() {
               x.studentId.toLowerCase() === id) &&
             x.password === pass,
         );
-      if (!found) {
-        document.getElementById("login-error").textContent =
-          "Invalid email/student ID or password.";
-        return;
+      try {
+        const result = await authRequest("/login", {
+          method: "POST",
+          body: JSON.stringify({ identity: id, password: pass }),
+        });
+        localStorage.setItem(AUTH_TOKEN_KEY, result.token);
+        localStorage.setItem(SESSION_KEY, JSON.stringify(result.user));
+        location.href = "index.html";
+      } catch (error) {
+        if (error instanceof TypeError && found) {
+          localStorage.removeItem(AUTH_TOKEN_KEY);
+          localStorage.setItem(SESSION_KEY, JSON.stringify(found));
+          location.href = "index.html";
+          return;
+        }
+        document.getElementById("login-error").textContent = error.message;
       }
-      localStorage.setItem(SESSION_KEY, JSON.stringify(found));
-      location.href = "index.html";
     };
     document.querySelector(".forgot-password").onclick = () =>
       alert("Password recovery will be implemented later.");
   }
 
   if (register) {
-    register.onsubmit = (e) => {
+    register.onsubmit = async (e) => {
       e.preventDefault();
       let f = (id) => document.getElementById(id),
         valid =
@@ -1403,31 +1437,47 @@ function setupAuth() {
           "Please complete every field, use a valid email, and ensure passwords match (6+ characters).";
         return;
       }
-      let users = JSON.parse(localStorage.getItem(USER_KEY) || "[]");
-      if (
-        users.some(
-          (x) =>
-            x.email === f("reg-email").value ||
-            x.studentId === f("reg-id").value,
-        )
-      ) {
-        document.getElementById("register-success").textContent =
-          "An account with this email or Student ID already exists.";
-        return;
-      }
-      users.push({
-        name: f("reg-name").value,
-        studentId: f("reg-id").value,
-        email: f("reg-email").value,
-        institution: f("reg-institution").value,
-        program: f("reg-program").value,
-        year: f("reg-year").value,
+      const registration = {
+        fullName: f("reg-name").value.trim(),
+        studentId: f("reg-id").value.trim(),
+        email: f("reg-email").value.trim(),
+        institution: f("reg-institution").value.trim(),
+        program: f("reg-program").value.trim(),
+        yearOfStudy: f("reg-year").value,
         password: f("reg-password").value,
-      });
-      localStorage.setItem(USER_KEY, JSON.stringify(users));
-      document.getElementById("register-success").textContent =
-        "Account created successfully! Redirecting to login...";
-      setTimeout(() => (location.href = "login.html"), 800);
+      };
+      try {
+        const result = await authRequest("/register", {
+          method: "POST",
+          body: JSON.stringify(registration),
+        });
+        document.getElementById("register-success").textContent = result.message;
+        setTimeout(() => (location.href = "login.html"), 800);
+      } catch (error) {
+        if (!(error instanceof TypeError)) {
+          document.getElementById("register-success").textContent = error.message;
+          return;
+        }
+        const users = JSON.parse(localStorage.getItem(USER_KEY) || "[]");
+        if (users.some((userRecord) => userRecord.email === registration.email || userRecord.studentId === registration.studentId)) {
+          document.getElementById("register-success").textContent =
+            "An account with this email or Student ID already exists.";
+          return;
+        }
+        users.push({
+          name: registration.fullName,
+          studentId: registration.studentId,
+          email: registration.email,
+          institution: registration.institution,
+          program: registration.program,
+          year: registration.yearOfStudy,
+          password: registration.password,
+        });
+        localStorage.setItem(USER_KEY, JSON.stringify(users));
+        document.getElementById("register-success").textContent =
+          "Account created successfully! Redirecting to login...";
+        setTimeout(() => (location.href = "login.html"), 800);
+      }
     };
   }
 
@@ -1450,6 +1500,7 @@ function setupAuth() {
           '<a href="profile.html">Profile</a><a href="profile.html">Settings</a><button id="logout">Logout</button>';
         button.parentElement.appendChild(menu);
         menu.querySelector("#logout").onclick = () => {
+          localStorage.removeItem(AUTH_TOKEN_KEY);
           localStorage.removeItem(SESSION_KEY);
           location.href = "login.html";
         };
