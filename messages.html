@@ -33,24 +33,34 @@
           <p class="eyebrow">STUDENT CONNECTIONS</p>
           <h1>Messages</h1>
         </div>
-        <button class="button" data-open-modal="new-message-modal">
+        <button class="button" id="new-chat-button" type="button">
           + New message
         </button>
       </section>
       <section class="messaging-layout">
         <aside class="conversation-list">
-          <label class="search"
-            >Search students<input
-              id="student-search"
+          <label class="search" for="conversation-search"
+            ><span class="visually-hidden">Search conversations</span><input
+              id="conversation-search"
               type="search"
-              placeholder="Search Sarah, John..."
+              placeholder="Search conversations..."
           /></label>
-          <div
-            id="student-results"
-            class="student-results"
-            aria-live="polite"
-          ></div>
-          <div id="conversation-list"></div>
+          <div class="message-tabs" role="tablist" aria-label="Messages views">
+            <button class="message-tab active" id="chats-tab" type="button" role="tab" aria-selected="true" aria-controls="chats-view">Chats</button>
+            <button class="message-tab" id="contacts-tab" type="button" role="tab" aria-selected="false" aria-controls="contacts-view">Contacts</button>
+          </div>
+          <section id="chats-view" role="tabpanel" aria-labelledby="chats-tab">
+            <div id="conversation-list" aria-live="polite"></div>
+          </section>
+          <section id="contacts-view" role="tabpanel" aria-labelledby="contacts-tab" hidden>
+            <label class="search contacts-search" for="contact-search"
+              ><span class="visually-hidden">Search contacts</span><input
+                id="contact-search"
+                type="search"
+                placeholder="Search contacts..."
+            /></label>
+            <div id="contact-list" aria-live="polite"></div>
+          </section>
         </aside>
         <section class="chat-window" id="private-chat">
           <header class="chat-header">
@@ -60,13 +70,6 @@
               <h2 id="chat-name">Sarah M.</h2>
               <p><i></i> <span id="chat-status">CampusPlan student</span></p>
             </div>
-            <button
-              class="text-button chat-action"
-              id="clear-conversation"
-              type="button"
-            >
-              Clear
-            </button>
           </header>
           <div class="chat-messages" id="private-messages"></div>
           <form class="chat-compose" id="private-form">
@@ -86,23 +89,6 @@
         </section>
       </section>
     </main>
-    <div class="modal" id="new-message-modal" hidden>
-      <div class="modal-backdrop" data-close-modal></div>
-      <section class="modal-dialog">
-        <button class="modal-close" data-close-modal>&times;</button>
-        <h2>New message</h2>
-        <form id="new-message-form" class="form-grid">
-          <label class="full"
-            >Student<select id="new-message-student"></select></label
-          ><label class="full"
-            >Message<textarea id="new-message-text" required></textarea>
-          </label>
-          <div class="form-actions full">
-            <button class="button">Send message</button>
-          </div>
-        </form>
-      </section>
-    </div>
     <script src="js/script.js"></script>
   </body>
 </html>

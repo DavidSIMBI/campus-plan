@@ -867,6 +867,20 @@ textarea:focus-visible {
 }
 .conversation-list {
   border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 .search {
   display: flex;
@@ -883,6 +897,79 @@ textarea:focus-visible {
   background: transparent;
   width: 100%;
   font-size: 13px;
+}
+.message-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px;
+  margin: 0 17px 12px;
+  padding: 4px;
+  background: #f3f5f8;
+  border-radius: 8px;
+}
+.message-tab {
+  border: 0;
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.message-tab.active {
+  background: #fff;
+  color: var(--blue);
+  box-shadow: 0 1px 2px rgba(28, 42, 70, 0.12);
+}
+.message-tab:focus-visible,
+.conversation:focus-visible,
+.contact-item:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: -2px;
+}
+#chats-view,
+#contacts-view {
+  min-height: 0;
+  overflow: auto;
+}
+.contacts-search {
+  margin-top: 0;
+}
+.contact-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 17px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.contact-item:hover {
+  background: var(--blue-soft);
+}
+.contact-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.contact-copy b,
+.contact-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.contact-copy b {
+  font-size: 13px;
+}
+.contact-copy small {
+  color: var(--muted);
+  font-size: 11px;
 }
 .conversation {
   position: relative;
@@ -2457,6 +2544,7 @@ textarea:focus-visible {
 :root[data-theme="dark"] .auth-card,
 :root[data-theme="dark"] .timetable,
 :root[data-theme="dark"] .conversation,
+:root[data-theme="dark"] .contact-item,
 :root[data-theme="dark"] .student-result,
 :root[data-theme="dark"] .profile-menu,
 :root[data-theme="dark"] .profile-menu a:hover,
@@ -2474,8 +2562,15 @@ textarea:focus-visible {
 :root[data-theme="dark"] .main-nav a:hover,
 :root[data-theme="dark"] .notification-item.unread,
 :root[data-theme="dark"] .conversation.active,
+:root[data-theme="dark"] .contact-item:hover,
 :root[data-theme="dark"] .search {
   background: var(--blue-soft);
+}
+:root[data-theme="dark"] .message-tabs {
+  background: var(--input-bg);
+}
+:root[data-theme="dark"] .message-tab.active {
+  background: var(--surface);
 }
 :root[data-theme="dark"] input,
 :root[data-theme="dark"] select,

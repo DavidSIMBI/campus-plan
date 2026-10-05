@@ -1547,7 +1547,7 @@ function markCommunicationNotificationsRead(eventKeys) {
   saveNotifications(notifications);
 }
 
-function setupMessagesV2() {
+function setupMessagesLegacy() {
   if (document.body.dataset.page !== "messages") return;
   const me = currentUser();
   const list = document.getElementById("conversation-list");
@@ -1828,6 +1828,289 @@ function setupMessagesV2() {
   loadStudentOptions();
   loadConversations();
   renderChat();
+}
+
+function setupMessagesV2() {
+  if (document.body.dataset.page !== "messages") return;
+
+  const me = currentUser();
+  const conversationList = document.getElementById("conversation-list");
+  const contactList = document.getElementById("contact-list");
+  const conversationSearch = document.getElementById("conversation-search");
+  const contactSearch = document.getElementById("contact-search");
+  const chatsView = document.getElementById("chats-view");
+  const contactsView = document.getElementById("contacts-view");
+  const chatsTab = document.getElementById("chats-tab");
+  const contactsTab = document.getElementById("contacts-tab");
+  const backToList = document.getElementById("back-to-list");
+  const profiles = new Map();
+  let conversations = [];
+  let contacts = [];
+  let activeUser = null;
+  let activeUserId = null;
+  let activeMessages = [];
+
+  backToList.setAttribute("aria-label", "Back to messages");
+  backToList.textContent = "←";
+
+  function rememberProfile(profile) {
+    if (!profile) return;
+    profiles.set(String(profile.id), profile);
+    if (profile.studentId) profiles.set(String(profile.studentId), profile);
+  }
+
+  function profileFor(id) {
+    return profiles.get(String(id)) || getUserProfile(id) || null;
+  }
+
+  function avatarFor(profile, extraClass) {
+    const savedProfile = profile && profile.studentId
+      ? getUserProfile(profile.studentId) || {}
+      : {};
+    return profileAvatarMarkup(
+      { ...profile, photo: savedProfile.photo || profile?.photo },
+      extraClass,
+    );
+  }
+
+  function friendlyError(error) {
+    return error.message === "Failed to fetch"
+      ? "Unable to connect to CampusPlan server."
+      : error.message;
+  }
+
+  function setView(view, focusSearch = false) {
+    const contactsActive = view === "contacts";
+    chatsView.hidden = contactsActive;
+    contactsView.hidden = !contactsActive;
+    chatsTab.classList.toggle("active", !contactsActive);
+    contactsTab.classList.toggle("active", contactsActive);
+    chatsTab.setAttribute("aria-selected", String(!contactsActive));
+    contactsTab.setAttribute("aria-selected", String(contactsActive));
+    conversationSearch.closest("label").hidden = contactsActive;
+    if (contactsActive) {
+      loadContacts(contactSearch.value.trim());
+      if (focusSearch) contactSearch.focus();
+    } else if (focusSearch) {
+      conversationSearch.focus();
+    }
+  }
+
+  function renderConversations() {
+    const query = conversationSearch.value.trim().toLowerCase();
+    const matching = conversations.filter((conversation) => {
+      const user = conversation.user;
+      return [user.fullName, user.studentId, conversation.latestMessage]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(query);
+    });
+    conversationList.innerHTML = matching.length
+      ? matching
+          .map((conversation) => {
+            const profile = conversation.user;
+            rememberProfile(profile);
+            const unread = Number(conversation.unreadCount || 0);
+            return (
+              '<button class="conversation ' +
+              (String(profile.id) === String(activeUserId) ? "active" : "") +
+              '" type="button" data-conversation-user="' +
+              profile.id +
+              '" aria-current="' +
+              (String(profile.id) === String(activeUserId) ? "true" : "false") +
+              '">' +
+              avatarFor(profile) +
+              '<span class="conversation-copy"><h3>' +
+              esc(profile.fullName) +
+              "</h3><p>" +
+              esc(conversation.latestMessage || "No messages yet") +
+              '</p></span><span class="conversation-meta"><time>' +
+              (conversation.latestMessageAt
+                ? esc(formatMessageTime(conversation.latestMessageAt))
+                : "") +
+              "</time>" +
+              (unread
+                ? '<b class="unread" aria-label="' + unread + ' unread messages">' + unread + "</b>"
+                : "") +
+              "</span></button>"
+            );
+          })
+          .join("")
+      : '<p class="empty-state">No conversations yet. Select Contacts to start one.</p>';
+  }
+
+  function renderContacts() {
+    contactList.innerHTML = contacts.length
+      ? contacts
+          .map((student) => {
+            rememberProfile(student);
+            const details = [student.program, student.yearOfStudy]
+              .filter(Boolean)
+              .join(" â€¢ ");
+            return (
+              '<button class="contact-item" type="button" data-contact-user="' +
+              student.id +
+              '">' +
+              avatarFor(student) +
+              '<span class="contact-copy"><b>' +
+              esc(student.fullName) +
+              "</b><small>" +
+              esc(details || "CampusPlan student") +
+              "</small><small>Student ID: " +
+              esc(student.studentId) +
+              "</small></span></button>"
+            );
+          })
+          .join("")
+      : '<p class="empty-state">No contacts found.</p>';
+  }
+
+  function renderChat() {
+    const chat = document.getElementById("private-chat");
+    const input = document.getElementById("private-input");
+    if (!activeUser) {
+      chat.classList.remove("has-conversation");
+      input.disabled = true;
+      document.getElementById("private-messages").innerHTML =
+        '<p class="empty-state chat-empty">Select a chat or contact to start messaging.</p>';
+      return;
+    }
+    chat.classList.add("has-conversation");
+    input.disabled = false;
+    rememberProfile(activeUser);
+    document.getElementById("chat-avatar").outerHTML = avatarFor(activeUser).replace(
+      /<(img|span) /,
+      '<$1 id="chat-avatar" ',
+    );
+    document.getElementById("chat-name").textContent = activeUser.fullName;
+    document.getElementById("chat-status").textContent = "CampusPlan student";
+    document.getElementById("private-messages").innerHTML = activeMessages.length
+      ? activeMessages
+          .map((message) => {
+            const sent = String(message.senderId) === String(me.id);
+            const sender = sent ? me : activeUser;
+            return (
+              '<div class="message-row ' +
+              (sent ? "sent-row" : "received-row") +
+              '">' +
+              avatarFor(sender) +
+              '<div class="bubble ' +
+              (sent ? "sent" : "received") +
+              '"><span>' +
+              esc(message.content) +
+              "</span><time>" +
+              esc(formatMessageTime(message.createdAt)) +
+              (sent ? (message.read ? " â€¢ Read" : " â€¢ Sent") : "") +
+              "</time></div></div>"
+            );
+          })
+          .join("")
+      : '<p class="empty-state chat-empty">No messages yet.<br>Start a conversation with ' +
+        esc(activeUser.fullName) +
+        ".</p>";
+  }
+
+  async function loadConversations() {
+    try {
+      const result = await messagesRequest("/conversations");
+      conversations = result.conversations || [];
+      conversations.forEach((conversation) => rememberProfile(conversation.user));
+      renderConversations();
+    } catch (error) {
+      conversationList.innerHTML =
+        '<p class="empty-state">' + esc(friendlyError(error)) + "</p>";
+    }
+  }
+
+  async function loadContacts(query = "") {
+    contactList.innerHTML = '<p class="empty-state">Loading contacts...</p>';
+    try {
+      const result = await messagesRequest(
+        "/students?search=" + encodeURIComponent(query),
+      );
+      contacts = result.students || [];
+      contacts.forEach(rememberProfile);
+      renderContacts();
+    } catch (error) {
+      contactList.innerHTML =
+        '<p class="empty-state">' + esc(friendlyError(error)) + "</p>";
+    }
+  }
+
+  async function openConversation(userId, profile) {
+    activeUserId = Number(userId);
+    activeUser = profile || profileFor(userId);
+    activeMessages = [];
+    renderChat();
+    try {
+      const result = await messagesRequest("/" + encodeURIComponent(userId));
+      activeUser = result.user;
+      activeMessages = result.messages || [];
+      rememberProfile(activeUser);
+      const summary = conversations.find(
+        (conversation) => String(conversation.user.id) === String(userId),
+      );
+      if (summary) summary.unreadCount = 0;
+      renderConversations();
+      renderChat();
+      document.getElementById("private-chat").classList.add("mobile-open");
+      messagesRequest("/" + encodeURIComponent(userId) + "/read", {
+        method: "PUT",
+      }).catch(() => {});
+    } catch (error) {
+      document.getElementById("private-messages").innerHTML =
+        '<p class="empty-state">' + esc(friendlyError(error)) + "</p>";
+    }
+  }
+
+  chatsTab.onclick = () => setView("chats");
+  contactsTab.onclick = () => setView("contacts");
+  document.getElementById("new-chat-button").onclick = () =>
+    setView("contacts", true);
+  conversationSearch.oninput = renderConversations;
+  contactSearch.oninput = () => loadContacts(contactSearch.value.trim());
+  conversationList.onclick = (event) => {
+    const item = event.target.closest("[data-conversation-user]");
+    if (item) openConversation(item.dataset.conversationUser, profileFor(item.dataset.conversationUser));
+  };
+  contactList.onclick = (event) => {
+    const item = event.target.closest("[data-contact-user]");
+    if (item) openConversation(item.dataset.contactUser, profileFor(item.dataset.contactUser));
+  };
+
+  document.getElementById("private-form").onsubmit = async (event) => {
+    event.preventDefault();
+    const input = document.getElementById("private-input");
+    const content = input.value.trim();
+    if (!activeUserId || !content) return;
+    input.setCustomValidity("");
+    if (content.length > 2000) {
+      input.setCustomValidity("Messages must be 2000 characters or fewer.");
+      input.reportValidity();
+      return;
+    }
+    try {
+      const result = await messagesRequest(
+        "/" + encodeURIComponent(activeUserId),
+        { method: "POST", body: JSON.stringify({ content }) },
+      );
+      activeMessages.push(result.message);
+      input.value = "";
+      renderChat();
+      await loadConversations();
+      setView("chats");
+    } catch (error) {
+      input.setCustomValidity(friendlyError(error));
+      input.reportValidity();
+    }
+  };
+
+  backToList.onclick = () =>
+    document.getElementById("private-chat").classList.remove("mobile-open");
+
+  renderChat();
+  loadConversations();
 }
 
 function setupGroupsLocalPrototype() {
