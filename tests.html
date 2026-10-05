@@ -3,7 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script>document.documentElement.dataset.theme = localStorage.getItem("campusplan_theme") || "light";</script>
+    <script>
+      document.documentElement.dataset.theme =
+        localStorage.getItem("campusplan_theme") || "light";
+    </script>
     <title>Tests &amp; Exams | CampusPlan</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -67,17 +70,22 @@
               required
               placeholder="e.g. Database Test" /></label
           ><label>Course<input id="test-course" required /></label
-          ><label class="full">Description<textarea id="test-description" rows="3"></textarea></label
+          ><label class="full"
+            >Description<textarea
+              id="test-description"
+              rows="3"
+            ></textarea></label
           ><label>Date<input id="test-date" type="date" required /></label
           ><label>Time<input id="test-time" type="time" required /></label
           ><label
-            >Room<input id="test-room" required placeholder="e.g. B12"
-          /></label
-          ><label>Status<select id="test-status">
-            <option selected>Upcoming</option>
-            <option>Completed</option>
-            <option>Missed</option>
-          </select></label>
+            >Room<input id="test-room" required placeholder="e.g. B12" /></label
+          ><label
+            >Status<select id="test-status">
+              <option selected>Upcoming</option>
+              <option>Completed</option>
+              <option>Missed</option>
+            </select></label
+          >
           <div class="form-actions full">
             <button type="button" class="button secondary" data-close-modal>
               Cancel</button

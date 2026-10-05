@@ -3,7 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script>document.documentElement.dataset.theme = localStorage.getItem("campusplan_theme") || "light";</script>
+    <script>
+      document.documentElement.dataset.theme =
+        localStorage.getItem("campusplan_theme") || "light";
+    </script>
     <title>CampusPlan | Dashboard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -29,8 +32,8 @@
         ><a href="tests.html">Tests &amp; Exams</a
         ><a href="presentations.html">Presentations</a
         ><a href="timetable.html">Timetable</a
-        ><a href="calendar.html">Calendar</a
-        ><a href="messages.html">Messages</a><a href="groups.html">Groups</a>
+        ><a href="calendar.html">Calendar</a><a href="messages.html">Messages</a
+        ><a href="groups.html">Groups</a>
       </nav>
       <button
         class="notification-button"
@@ -58,9 +61,7 @@
       <section class="welcome">
         <div>
           <p class="eyebrow">STUDENT DASHBOARD</p>
-          <h1>
-            Good morning, <span id="student-name">David</span>
-          </h1>
+          <h1>Good morning, <span id="student-name">David</span></h1>
           <p>Here is what you need to focus on today.</p>
         </div>
         <a class="button" href="assignments.html">Manage assignments</a>
@@ -95,11 +96,34 @@
           </div>
         </article>
       </section>
-      <section class="summary-grid four-stats dashboard-quick-stats" aria-label="Communication overview">
-        <a class="summary-card accent-blue" href="messages.html"><span><strong id="message-count">0</strong><small>Unread messages</small></span></a>
-        <a class="summary-card accent-orange" href="#dashboard-notifications"><span><strong id="notification-dashboard-count">0</strong><small>Unread notifications</small></span></a>
-        <a class="summary-card accent-green" href="#dashboard-events"><span><strong id="classes-today">0</strong><small>Classes today</small></span></a>
-        <a class="summary-card accent-purple" href="calendar.html"><span><strong id="deadline-count">0</strong><small>Upcoming deadlines</small></span></a>
+      <section
+        class="summary-grid four-stats dashboard-quick-stats"
+        aria-label="Communication overview"
+      >
+        <a class="summary-card accent-blue" href="messages.html"
+          ><span
+            ><strong id="message-count">0</strong
+            ><small>Unread messages</small></span
+          ></a
+        >
+        <a class="summary-card accent-orange" href="#dashboard-notifications"
+          ><span
+            ><strong id="notification-dashboard-count">0</strong
+            ><small>Unread notifications</small></span
+          ></a
+        >
+        <a class="summary-card accent-green" href="#dashboard-events"
+          ><span
+            ><strong id="classes-today">0</strong
+            ><small>Classes today</small></span
+          ></a
+        >
+        <a class="summary-card accent-purple" href="calendar.html"
+          ><span
+            ><strong id="deadline-count">0</strong
+            ><small>Upcoming deadlines</small></span
+          ></a
+        >
       </section>
       <section class="dashboard-grid">
         <div class="content-column">
@@ -173,7 +197,11 @@
           <section class="panel compact">
             <div class="panel-heading">
               <h2>Reminders</h2>
-              <button class="text-button" type="button" data-open-modal="reminder-modal">
+              <button
+                class="text-button"
+                type="button"
+                data-open-modal="reminder-modal"
+              >
                 + Add Reminder
               </button>
             </div>
@@ -182,7 +210,11 @@
           <section class="panel compact">
             <div class="panel-heading">
               <h2>Notifications</h2>
-              <button class="text-button" id="dashboard-mark-read" type="button">
+              <button
+                class="text-button"
+                id="dashboard-mark-read"
+                type="button"
+              >
                 Mark all as read
               </button>
             </div>
@@ -214,8 +246,19 @@
     </main>
     <div class="modal" id="reminder-modal" hidden>
       <div class="modal-backdrop" data-close-modal></div>
-      <section class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="reminder-modal-title">
-        <button class="modal-close" aria-label="Close reminder form" data-close-modal>&times;</button>
+      <section
+        class="modal-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="reminder-modal-title"
+      >
+        <button
+          class="modal-close"
+          aria-label="Close reminder form"
+          data-close-modal
+        >
+          &times;
+        </button>
         <h2 id="reminder-modal-title">Add reminder</h2>
         <form id="reminder-form" class="form-grid">
           <label class="full">
@@ -243,7 +286,9 @@
             </select>
           </label>
           <div class="form-actions full">
-            <button type="button" class="button secondary" data-close-modal>Cancel</button>
+            <button type="button" class="button secondary" data-close-modal>
+              Cancel
+            </button>
             <button class="button" type="submit">Save reminder</button>
           </div>
         </form>

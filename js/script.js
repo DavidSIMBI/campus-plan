@@ -9,13 +9,18 @@ const PRESENTATIONS_API_BASE = "http://localhost:5000/api/presentations";
 const TIMETABLE_API_BASE = "http://localhost:5000/api/timetable";
 const CALENDAR_API_BASE = "http://localhost:5000/api/calendar";
 const MESSAGES_API_BASE = "http://localhost:5000/api/messages";
+const GROUPS_API_BASE = "http://localhost:5000/api/groups";
 const THEME_KEY = "campusplan_theme";
 let assignmentStore = [];
 let testStore = [];
 let presentationStore = [];
 let timetableStore = [];
 let calendarPersonalStore = [];
-let calendarAcademicStore = { assignments: null, tests: null, presentations: null };
+let calendarAcademicStore = {
+  assignments: null,
+  tests: null,
+  presentations: null,
+};
 let calendarDataLoaded = false;
 function applyTheme(theme) {
   const nextTheme = theme === "dark" ? "dark" : "light";
@@ -33,7 +38,10 @@ function setupTheme() {
   toggle.className = "theme-toggle";
   const renderToggle = (theme) => {
     const dark = theme === "dark";
-    toggle.setAttribute("aria-label", dark ? "Switch to light mode" : "Switch to dark mode");
+    toggle.setAttribute(
+      "aria-label",
+      dark ? "Switch to light mode" : "Switch to dark mode",
+    );
     toggle.setAttribute("aria-pressed", String(dark));
     toggle.innerHTML = dark
       ? '<span class="theme-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M20.6 15.2A8.5 8.5 0 0 1 8.8 3.4 8.5 8.5 0 1 0 20.6 15.2Z"></path></svg></span>'
@@ -42,10 +50,13 @@ function setupTheme() {
   renderToggle(currentTheme);
   const header = document.querySelector(".site-header");
   const authCard = document.querySelector(".auth-card");
-  if (header) header.insertBefore(toggle, header.querySelector(".profile") || null);
+  if (header)
+    header.insertBefore(toggle, header.querySelector(".profile") || null);
   else if (authCard) authCard.appendChild(toggle);
   toggle.onclick = () => {
-    const nextTheme = applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
+    const nextTheme = applyTheme(
+      document.documentElement.dataset.theme === "dark" ? "light" : "dark",
+    );
     renderToggle(nextTheme);
   };
 }
@@ -88,7 +99,8 @@ async function assignmentRequest(path = "", options = {}) {
     location.replace("login.html?notice=session-expired");
     throw new Error("Your session has expired. Please log in again.");
   }
-  if (!response.ok) throw new Error(body.message || "Assignment request failed.");
+  if (!response.ok)
+    throw new Error(body.message || "Assignment request failed.");
   return body;
 }
 async function testRequest(path = "", options = {}) {
@@ -128,7 +140,8 @@ async function presentationRequest(path = "", options = {}) {
     location.replace("login.html?notice=session-expired");
     throw new Error("Your session has expired. Please log in again.");
   }
-  if (!response.ok) throw new Error(body.message || "Presentation request failed.");
+  if (!response.ok)
+    throw new Error(body.message || "Presentation request failed.");
   return body;
 }
 async function timetableRequest(path = "", options = {}) {
@@ -148,7 +161,8 @@ async function timetableRequest(path = "", options = {}) {
     location.replace("login.html?notice=session-expired");
     throw new Error("Your session has expired. Please log in again.");
   }
-  if (!response.ok) throw new Error(body.message || "Timetable request failed.");
+  if (!response.ok)
+    throw new Error(body.message || "Timetable request failed.");
   return body;
 }
 async function calendarRequest(path = "", options = {}) {
@@ -189,6 +203,26 @@ async function messagesRequest(path = "", options = {}) {
     throw new Error("Your session has expired. Please log in again.");
   }
   if (!response.ok) throw new Error(body.message || "Messages request failed.");
+  return body;
+}
+async function groupsRequest(path = "", options = {}) {
+  const token = localStorage.getItem(AUTH_TOKEN_KEY);
+  const response = await fetch(GROUPS_API_BASE + path, {
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: "Bearer " + token } : {}),
+      ...(options.headers || {}),
+    },
+    ...options,
+  });
+  const body = await response.json().catch(() => ({}));
+  if (response.status === 401) {
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+    localStorage.removeItem(SESSION_KEY);
+    location.replace("login.html?notice=session-expired");
+    throw new Error("Your session has expired. Please log in again.");
+  }
+  if (!response.ok) throw new Error(body.message || "Groups request failed.");
   return body;
 }
 function frontendUser(apiUser) {
@@ -333,7 +367,11 @@ function avatarMarkup(studentId, extraClass) {
   const profile = getUserProfile(studentId) || {};
   const className = ["avatar", extraClass || ""].filter(Boolean).join(" ");
   if (String(studentId).startsWith("group:")) {
-    return '<span class="' + className + ' group-avatar" aria-label="Group">CP</span>';
+    return (
+      '<span class="' +
+      className +
+      ' group-avatar" aria-label="Group">CP</span>'
+    );
   }
   return profile.photo
     ? '<img class="' +
@@ -354,9 +392,25 @@ function avatarMarkup(studentId, extraClass) {
 function profileAvatarMarkup(profile, extraClass) {
   const className = ["avatar", extraClass || ""].filter(Boolean).join(" ");
   if (profile && profile.photo) {
-    return '<img class="' + className + ' avatar-photo" src="' + esc(profile.photo) + '" alt="' + esc(profile.name || profile.fullName || "Student") + ' profile photo">';
+    return (
+      '<img class="' +
+      className +
+      ' avatar-photo" src="' +
+      esc(profile.photo) +
+      '" alt="' +
+      esc(profile.name || profile.fullName || "Student") +
+      ' profile photo">'
+    );
   }
-  return '<span class="' + className + '" aria-label="' + esc(profile?.name || profile?.fullName || "Student") + '">' + esc(initials(profile?.name || profile?.fullName)) + "</span>";
+  return (
+    '<span class="' +
+    className +
+    '" aria-label="' +
+    esc(profile?.name || profile?.fullName || "Student") +
+    '">' +
+    esc(initials(profile?.name || profile?.fullName)) +
+    "</span>"
+  );
 }
 function groupAvatarMarkup(group, extraClass) {
   const className = ["avatar", "group-avatar", extraClass || ""]
@@ -375,7 +429,10 @@ function groupAvatarMarkup(group, extraClass) {
 function formatMessageTime(value) {
   const messageDate = new Date(value);
   if (Number.isNaN(messageDate.getTime())) return "";
-  return messageDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return messageDate.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 function date(x) {
   return new Intl.DateTimeFormat("en", {
@@ -536,7 +593,11 @@ function setupAssignments() {
       assignmentStore = result.assignments || [];
       renderAssignments();
     } catch (error) {
-      showError(error.message === "Failed to fetch" ? "Unable to connect to CampusPlan server." : error.message);
+      showError(
+        error.message === "Failed to fetch"
+          ? "Unable to connect to CampusPlan server."
+          : error.message,
+      );
     }
   }
   loadAssignments();
@@ -564,10 +625,13 @@ function setupAssignments() {
     const submitButton = e.target.querySelector('button[type="submit"]');
     submitButton.disabled = true;
     try {
-      const result = await assignmentRequest(id ? "/" + encodeURIComponent(id) : "", {
-        method: id ? "PUT" : "POST",
-        body: JSON.stringify(x),
-      });
+      const result = await assignmentRequest(
+        id ? "/" + encodeURIComponent(id) : "",
+        {
+          method: id ? "PUT" : "POST",
+          body: JSON.stringify(x),
+        },
+      );
       if (id) {
         assignmentStore = assignmentStore.map((assignment) =>
           String(assignment.id) === String(id) ? result.assignment : assignment,
@@ -578,28 +642,46 @@ function setupAssignments() {
       e.target.reset();
       document.getElementById("assignment-id").value = "";
       document.getElementById("assignment-modal").hidden = true;
-      document.getElementById("assignment-modal-title").textContent = "Add assignment";
+      document.getElementById("assignment-modal-title").textContent =
+        "Add assignment";
       renderAssignments();
     } catch (error) {
-      showError(error.message === "Failed to fetch" ? "Unable to connect to CampusPlan server." : error.message);
+      showError(
+        error.message === "Failed to fetch"
+          ? "Unable to connect to CampusPlan server."
+          : error.message,
+      );
     } finally {
       submitButton.disabled = false;
     }
   };
   document.getElementById("assignment-list").onclick = async (e) => {
-    let id = e.target.dataset.edit || e.target.dataset.delete || e.target.dataset.complete;
+    let id =
+      e.target.dataset.edit ||
+      e.target.dataset.delete ||
+      e.target.dataset.complete;
     if (!id) return;
     if (e.target.dataset.delete) {
       if (!confirm("Delete this assignment?")) return;
       try {
-        await assignmentRequest("/" + encodeURIComponent(id), { method: "DELETE" });
-        assignmentStore = assignmentStore.filter((assignment) => String(assignment.id) !== String(id));
+        await assignmentRequest("/" + encodeURIComponent(id), {
+          method: "DELETE",
+        });
+        assignmentStore = assignmentStore.filter(
+          (assignment) => String(assignment.id) !== String(id),
+        );
         renderAssignments();
       } catch (error) {
-        showError(error.message === "Failed to fetch" ? "Unable to connect to CampusPlan server." : error.message);
+        showError(
+          error.message === "Failed to fetch"
+            ? "Unable to connect to CampusPlan server."
+            : error.message,
+        );
       }
     } else if (e.target.dataset.complete) {
-      const assignment = assignmentStore.find((item) => String(item.id) === String(id));
+      const assignment = assignmentStore.find(
+        (item) => String(item.id) === String(id),
+      );
       if (!assignment) return;
       try {
         const result = await assignmentRequest("/" + encodeURIComponent(id), {
@@ -611,10 +693,16 @@ function setupAssignments() {
         );
         renderAssignments();
       } catch (error) {
-        showError(error.message === "Failed to fetch" ? "Unable to connect to CampusPlan server." : error.message);
+        showError(
+          error.message === "Failed to fetch"
+            ? "Unable to connect to CampusPlan server."
+            : error.message,
+        );
       }
     } else {
-      let x = assignmentStore.find((assignment) => String(assignment.id) === String(id));
+      let x = assignmentStore.find(
+        (assignment) => String(assignment.id) === String(id),
+      );
       if (!x) return;
       [
         "id",
@@ -770,12 +858,15 @@ function setupTests() {
         body: JSON.stringify(data),
       });
       testStore = id
-        ? testStore.map((test) => String(test.id) === String(id) ? result.test : test)
+        ? testStore.map((test) =>
+            String(test.id) === String(id) ? result.test : test,
+          )
         : [...testStore, result.test];
       put("tests", testStore);
       event.target.reset();
       document.getElementById("test-id").value = "";
-      document.getElementById("test-modal-title").textContent = "Add test or exam";
+      document.getElementById("test-modal-title").textContent =
+        "Add test or exam";
       document.getElementById("test-modal").hidden = true;
       renderTests();
     } catch (error) {
@@ -799,7 +890,11 @@ function setupTests() {
         put("tests", testStore);
         renderTests();
       } catch (error) {
-        showError(error.message === "Failed to fetch" ? "Unable to connect to CampusPlan server." : error.message);
+        showError(
+          error.message === "Failed to fetch"
+            ? "Unable to connect to CampusPlan server."
+            : error.message,
+        );
       }
       return;
     }
@@ -813,7 +908,8 @@ function setupTests() {
     document.getElementById("test-time").value = test.time || "";
     document.getElementById("test-room").value = test.room || "";
     document.getElementById("test-status").value = test.status || "Upcoming";
-    document.getElementById("test-modal-title").textContent = "Edit test or exam";
+    document.getElementById("test-modal-title").textContent =
+      "Edit test or exam";
     document.getElementById("test-modal").hidden = false;
   };
 }
@@ -886,8 +982,12 @@ function setupPresentations() {
       return;
     }
     if (!Array.isArray(legacyPresentations)) return;
-    const importedIdsKey = userKey("campusplan-presentations-migration-progress");
-    const importedIds = new Set(JSON.parse(localStorage.getItem(importedIdsKey) || "[]"));
+    const importedIdsKey = userKey(
+      "campusplan-presentations-migration-progress",
+    );
+    const importedIds = new Set(
+      JSON.parse(localStorage.getItem(importedIdsKey) || "[]"),
+    );
     for (const presentation of legacyPresentations) {
       if (importedIds.has(String(presentation.id))) continue;
       await presentationRequest("", {
@@ -918,7 +1018,11 @@ function setupPresentations() {
       put("presentations", presentationStore);
       renderPresentations();
     } catch (error) {
-      showError(error.message === "Failed to fetch" ? "Unable to connect to CampusPlan server." : error.message);
+      showError(
+        error.message === "Failed to fetch"
+          ? "Unable to connect to CampusPlan server."
+          : error.message,
+      );
     }
   }
   loadPresentations();
@@ -928,7 +1032,9 @@ function setupPresentations() {
     const data = {
       title: document.getElementById("presentation-title").value.trim(),
       course: document.getElementById("presentation-course").value.trim(),
-      description: document.getElementById("presentation-description").value.trim(),
+      description: document
+        .getElementById("presentation-description")
+        .value.trim(),
       date: document.getElementById("presentation-date").value,
       group: document.getElementById("presentation-group").value.trim(),
       part: document.getElementById("presentation-part").value.trim(),
@@ -937,68 +1043,105 @@ function setupPresentations() {
     const submitButton = e.target.querySelector('button[type="submit"]');
     submitButton.disabled = true;
     try {
-      const result = await presentationRequest(id ? "/" + encodeURIComponent(id) : "", {
-        method: id ? "PUT" : "POST",
-        body: JSON.stringify(data),
-      });
+      const result = await presentationRequest(
+        id ? "/" + encodeURIComponent(id) : "",
+        {
+          method: id ? "PUT" : "POST",
+          body: JSON.stringify(data),
+        },
+      );
       presentationStore = id
-        ? presentationStore.map((presentation) => String(presentation.id) === String(id) ? result.presentation : presentation)
+        ? presentationStore.map((presentation) =>
+            String(presentation.id) === String(id)
+              ? result.presentation
+              : presentation,
+          )
         : [...presentationStore, result.presentation];
       put("presentations", presentationStore);
       e.target.reset();
       document.getElementById("presentation-id").value = "";
-      document.getElementById("presentation-modal-title").textContent = "Add presentation";
+      document.getElementById("presentation-modal-title").textContent =
+        "Add presentation";
       document.getElementById("presentation-modal").hidden = true;
       renderPresentations();
     } catch (error) {
-      showError(error.message === "Failed to fetch" ? "Unable to connect to CampusPlan server." : error.message);
+      showError(
+        error.message === "Failed to fetch"
+          ? "Unable to connect to CampusPlan server."
+          : error.message,
+      );
     } finally {
       submitButton.disabled = false;
     }
   };
   list.onclick = async (event) => {
-    const id = event.target.dataset.editPresentation || event.target.dataset.deletePresentation;
+    const id =
+      event.target.dataset.editPresentation ||
+      event.target.dataset.deletePresentation;
     if (!id) return;
     if (event.target.dataset.deletePresentation) {
       if (!confirm("Delete this presentation?")) return;
       try {
-        await presentationRequest("/" + encodeURIComponent(id), { method: "DELETE" });
-        presentationStore = presentationStore.filter((presentation) => String(presentation.id) !== String(id));
+        await presentationRequest("/" + encodeURIComponent(id), {
+          method: "DELETE",
+        });
+        presentationStore = presentationStore.filter(
+          (presentation) => String(presentation.id) !== String(id),
+        );
         put("presentations", presentationStore);
         renderPresentations();
       } catch (error) {
-        showError(error.message === "Failed to fetch" ? "Unable to connect to CampusPlan server." : error.message);
+        showError(
+          error.message === "Failed to fetch"
+            ? "Unable to connect to CampusPlan server."
+            : error.message,
+        );
       }
       return;
     }
-    const presentation = presentationStore.find((item) => String(item.id) === String(id));
+    const presentation = presentationStore.find(
+      (item) => String(item.id) === String(id),
+    );
     if (!presentation) return;
     document.getElementById("presentation-id").value = presentation.id;
     document.getElementById("presentation-title").value = presentation.title;
     document.getElementById("presentation-course").value = presentation.course;
-    document.getElementById("presentation-description").value = presentation.description || "";
+    document.getElementById("presentation-description").value =
+      presentation.description || "";
     document.getElementById("presentation-date").value = presentation.date;
-    document.getElementById("presentation-group").value = presentation.group || "";
-    document.getElementById("presentation-part").value = presentation.part || "";
-    document.getElementById("presentation-status").value = presentation.status || "Not Started";
-    document.getElementById("presentation-modal-title").textContent = "Edit presentation";
+    document.getElementById("presentation-group").value =
+      presentation.group || "";
+    document.getElementById("presentation-part").value =
+      presentation.part || "";
+    document.getElementById("presentation-status").value =
+      presentation.status || "Not Started";
+    document.getElementById("presentation-modal-title").textContent =
+      "Edit presentation";
     document.getElementById("presentation-modal").hidden = false;
   };
   list.onchange = async (event) => {
     const id = event.target.dataset.pStatus;
     if (!id) return;
-    const presentation = presentationStore.find((item) => String(item.id) === String(id));
+    const presentation = presentationStore.find(
+      (item) => String(item.id) === String(id),
+    );
     if (!presentation) return;
     try {
       const result = await presentationRequest("/" + encodeURIComponent(id), {
         method: "PUT",
         body: JSON.stringify({ ...presentation, status: event.target.value }),
       });
-      presentationStore = presentationStore.map((item) => String(item.id) === String(id) ? result.presentation : item);
+      presentationStore = presentationStore.map((item) =>
+        String(item.id) === String(id) ? result.presentation : item,
+      );
       put("presentations", presentationStore);
       renderPresentations();
     } catch (error) {
-      showError(error.message === "Failed to fetch" ? "Unable to connect to CampusPlan server." : error.message);
+      showError(
+        error.message === "Failed to fetch"
+          ? "Unable to connect to CampusPlan server."
+          : error.message,
+      );
     }
   };
 }
@@ -1024,13 +1167,23 @@ async function dashboard() {
   const upcomingTests = t.filter((x) => days(x.date) >= 0);
   const upcomingPresentations = p.filter((x) => x.status !== "Completed");
   const student = currentUser();
-  const conversations = JSON.parse(localStorage.getItem(userKey("campusplan-conversations")) || "[]");
-  const groups = JSON.parse(localStorage.getItem(userKey("campusplan-groups")) || "[]");
+  const conversations = JSON.parse(
+    localStorage.getItem(userKey("campusplan-conversations")) || "[]",
+  );
+  const groups = JSON.parse(
+    localStorage.getItem(userKey("campusplan-groups")) || "[]",
+  );
   const unreadMessages = conversations.reduce(
-    (count, conversation) => count + conversation.messages.filter((message) => message.senderId !== student.studentId && !message.read).length,
+    (count, conversation) =>
+      count +
+      conversation.messages.filter(
+        (message) => message.senderId !== student.studentId && !message.read,
+      ).length,
     0,
   );
-  const unreadNotifications = getNotifications().filter((notification) => !notification.read).length;
+  const unreadNotifications = getNotifications().filter(
+    (notification) => !notification.read,
+  ).length;
   by("pending-count").textContent = a.length - done;
   by("test-count").textContent = upcomingTests.length;
   by("presentation-count").textContent = p.filter(
@@ -1038,9 +1191,15 @@ async function dashboard() {
   ).length;
   by("completed-count").textContent = done;
   if (by("message-count")) by("message-count").textContent = unreadMessages;
-  if (by("notification-dashboard-count")) by("notification-dashboard-count").textContent = unreadNotifications;
-  if (by("deadline-count")) by("deadline-count").textContent = a.filter((item) => days(item.dueDate) >= 0).length + upcomingTests.length + upcomingPresentations.length;
-  if (by("student-name") && student) by("student-name").textContent = student.name.split(" ")[0];
+  if (by("notification-dashboard-count"))
+    by("notification-dashboard-count").textContent = unreadNotifications;
+  if (by("deadline-count"))
+    by("deadline-count").textContent =
+      a.filter((item) => days(item.dueDate) >= 0).length +
+      upcomingTests.length +
+      upcomingPresentations.length;
+  if (by("student-name") && student)
+    by("student-name").textContent = student.name.split(" ")[0];
   if (by("classes-today")) by("classes-today").textContent = "3";
   by("progress-percent").textContent = pc + "%";
   by("progress-summary").textContent =
@@ -1096,26 +1255,53 @@ async function dashboard() {
     .join("");
   const recentMessages = conversations
     .slice()
-    .sort((first, second) => new Date(second.messages.at(-1)?.timestamp || 0) - new Date(first.messages.at(-1)?.timestamp || 0))
+    .sort(
+      (first, second) =>
+        new Date(second.messages.at(-1)?.timestamp || 0) -
+        new Date(first.messages.at(-1)?.timestamp || 0),
+    )
     .slice(0, 2);
   const messageContainer = by("dashboard-recent-messages");
   if (messageContainer) {
     messageContainer.innerHTML = recentMessages.length
-      ? recentMessages.map((conversation) => {
-          const profile = getUserProfile(conversation.participantId) || {};
-          const last = conversation.messages.at(-1);
-          return '<a class="message-preview" href="messages.html">' + avatarMarkup(profile.studentId) + '<div><h3>' + esc(profile.name || "Student") + '</h3><p>' + esc(last?.text || "No messages yet") + '</p></div></a>';
-        }).join("")
+      ? recentMessages
+          .map((conversation) => {
+            const profile = getUserProfile(conversation.participantId) || {};
+            const last = conversation.messages.at(-1);
+            return (
+              '<a class="message-preview" href="messages.html">' +
+              avatarMarkup(profile.studentId) +
+              "<div><h3>" +
+              esc(profile.name || "Student") +
+              "</h3><p>" +
+              esc(last?.text || "No messages yet") +
+              "</p></div></a>"
+            );
+          })
+          .join("")
       : '<p class="empty-state">No recent conversations.</p>';
   }
   const groupContainer = by("dashboard-group-activity");
   if (groupContainer) {
     const activeGroups = groups
       .filter((group) => group.messages && group.messages.length)
-      .sort((first, second) => new Date(second.messages.at(-1).timestamp) - new Date(first.messages.at(-1).timestamp))
+      .sort(
+        (first, second) =>
+          new Date(second.messages.at(-1).timestamp) -
+          new Date(first.messages.at(-1).timestamp),
+      )
       .slice(0, 2);
     groupContainer.innerHTML = activeGroups.length
-      ? activeGroups.map((group) => '<a class="message-preview" href="groups.html"><span class="avatar group-avatar">CP</span><div><h3>' + esc(group.name) + '</h3><p>' + esc(group.messages.at(-1).text) + '</p></div></a>').join("")
+      ? activeGroups
+          .map(
+            (group) =>
+              '<a class="message-preview" href="groups.html"><span class="avatar group-avatar">CP</span><div><h3>' +
+              esc(group.name) +
+              "</h3><p>" +
+              esc(group.messages.at(-1).text) +
+              "</p></div></a>",
+          )
+          .join("")
       : '<p class="empty-state">No recent group activity.</p>';
   }
 }
@@ -1320,7 +1506,10 @@ function syncCommunicationNotifications(conversations, groups) {
   };
   conversations.forEach((conversation) => {
     conversation.messages
-      .filter((message) => message.senderId !== currentUser().studentId && !message.read)
+      .filter(
+        (message) =>
+          message.senderId !== currentUser().studentId && !message.read,
+      )
       .forEach((message) => {
         const sender = getUserProfile(message.senderId);
         add(
@@ -1333,7 +1522,10 @@ function syncCommunicationNotifications(conversations, groups) {
   });
   groups.forEach((group) => {
     group.messages
-      .filter((message) => message.senderId !== currentUser().studentId && !message.read)
+      .filter(
+        (message) =>
+          message.senderId !== currentUser().studentId && !message.read,
+      )
       .forEach((message) => {
         add(
           "group:" + group.id + ":" + message.id,
@@ -1348,7 +1540,9 @@ function syncCommunicationNotifications(conversations, groups) {
 function markCommunicationNotificationsRead(eventKeys) {
   const keys = new Set(eventKeys);
   const notifications = getNotifications().map((notification) =>
-    keys.has(notification.eventKey) ? { ...notification, read: true } : notification,
+    keys.has(notification.eventKey)
+      ? { ...notification, read: true }
+      : notification,
   );
   saveNotifications(notifications);
 }
@@ -1371,63 +1565,119 @@ function setupMessagesV2() {
     if (profile.studentId) profiles.set(String(profile.studentId), profile);
   }
   function profileFor(id) {
-    return profiles.get(String(id)) || getUserProfile(id) || { name: "Student", studentId: id };
+    return (
+      profiles.get(String(id)) ||
+      getUserProfile(id) || { name: "Student", studentId: id }
+    );
   }
   function avatarFor(profile, extraClass) {
-    if (!profile || (!profile.id && !profile.studentId)) return avatarMarkup("unknown", extraClass);
+    if (!profile || (!profile.id && !profile.studentId))
+      return avatarMarkup("unknown", extraClass);
     return profileAvatarMarkup(profile, extraClass);
   }
   function renderList() {
     list.innerHTML = conversations.length
-      ? conversations.map((conversation) => {
-          const profile = conversation.user;
-          rememberProfile(profile);
-          return '<article class="conversation ' +
-            (String(profile.id) === String(activeUserId) ? "active" : "") +
-            '" data-conversation-user="' + profile.id + '">' +
-            avatarFor(profile) +
-            '<div class="conversation-copy"><h3>' + esc(profile.fullName) + '</h3><p>' +
-            esc(conversation.latestMessage || "No messages yet") +
-            '</p></div><div class="conversation-meta"><time>' +
-            (conversation.latestMessageAt ? formatMessageTime(conversation.latestMessageAt) : "") +
-            '</time>' +
-            (conversation.unreadCount ? '<b class="unread" aria-label="' + conversation.unreadCount + ' unread">' + conversation.unreadCount + "</b>" : "") +
-            '</div></article>';
-        }).join("")
+      ? conversations
+          .map((conversation) => {
+            const profile = conversation.user;
+            rememberProfile(profile);
+            return (
+              '<article class="conversation ' +
+              (String(profile.id) === String(activeUserId) ? "active" : "") +
+              '" data-conversation-user="' +
+              profile.id +
+              '">' +
+              avatarFor(profile) +
+              '<div class="conversation-copy"><h3>' +
+              esc(profile.fullName) +
+              "</h3><p>" +
+              esc(conversation.latestMessage || "No messages yet") +
+              '</p></div><div class="conversation-meta"><time>' +
+              (conversation.latestMessageAt
+                ? formatMessageTime(conversation.latestMessageAt)
+                : "") +
+              "</time>" +
+              (conversation.unreadCount
+                ? '<b class="unread" aria-label="' +
+                  conversation.unreadCount +
+                  ' unread">' +
+                  conversation.unreadCount +
+                  "</b>"
+                : "") +
+              "</div></article>"
+            );
+          })
+          .join("")
       : '<p class="empty-state">No conversations yet.</p>';
   }
   function renderChat() {
     const chat = document.getElementById("private-chat");
     if (!activeUser) {
       chat.classList.remove("has-conversation");
-      document.getElementById("private-messages").innerHTML = '<p class="empty-state chat-empty">Select a student to start messaging.</p>';
+      document.getElementById("private-messages").innerHTML =
+        '<p class="empty-state chat-empty">Select a student to start messaging.</p>';
       return;
     }
     chat.classList.add("has-conversation");
     rememberProfile(activeUser);
-    const chatAvatar = avatarFor(activeUser).replace(/<(img|span) /, '<$1 id="chat-avatar" ');
+    const chatAvatar = avatarFor(activeUser).replace(
+      /<(img|span) /,
+      '<$1 id="chat-avatar" ',
+    );
     document.getElementById("chat-avatar").outerHTML = chatAvatar;
     document.getElementById("chat-name").textContent = activeUser.fullName;
     document.getElementById("chat-status").textContent = "CampusPlan student";
-    document.getElementById("private-messages").innerHTML = activeMessages.length
-      ? activeMessages.map((message) => {
-          const sender = String(message.senderId) === String(me.id) ? me : profileFor(message.senderId);
-          return '<div class="message-row ' + (String(message.senderId) === String(me.id) ? "sent-row" : "received-row") + '">' +
-            avatarFor(sender) + '<div class="bubble ' + (String(message.senderId) === String(me.id) ? "sent" : "received") + '"><span>' +
-            esc(message.content) + '</span><time>' + formatMessageTime(message.createdAt) +
-            (String(message.senderId) === String(me.id) ? (message.read ? " · Read" : " · Sent") : "") +
-            "</time></div></div>";
-        }).join("")
-      : '<p class="empty-state chat-empty">No messages yet. Start the conversation.</p>';
+    document.getElementById("private-messages").innerHTML =
+      activeMessages.length
+        ? activeMessages
+            .map((message) => {
+              const sender =
+                String(message.senderId) === String(me.id)
+                  ? me
+                  : profileFor(message.senderId);
+              return (
+                '<div class="message-row ' +
+                (String(message.senderId) === String(me.id)
+                  ? "sent-row"
+                  : "received-row") +
+                '">' +
+                avatarFor(sender) +
+                '<div class="bubble ' +
+                (String(message.senderId) === String(me.id)
+                  ? "sent"
+                  : "received") +
+                '"><span>' +
+                esc(message.content) +
+                "</span><time>" +
+                formatMessageTime(message.createdAt) +
+                (String(message.senderId) === String(me.id)
+                  ? message.read
+                    ? " · Read"
+                    : " · Sent"
+                  : "") +
+                "</time></div></div>"
+              );
+            })
+            .join("")
+        : '<p class="empty-state chat-empty">No messages yet. Start the conversation.</p>';
   }
   async function loadConversations() {
     try {
       const result = await messagesRequest("/conversations");
       conversations = result.conversations || [];
-      conversations.forEach((conversation) => rememberProfile(conversation.user));
+      conversations.forEach((conversation) =>
+        rememberProfile(conversation.user),
+      );
       renderList();
     } catch (error) {
-      list.innerHTML = '<p class="empty-state">' + esc(error.message === "Failed to fetch" ? "Unable to connect to CampusPlan server." : error.message) + "</p>";
+      list.innerHTML =
+        '<p class="empty-state">' +
+        esc(
+          error.message === "Failed to fetch"
+            ? "Unable to connect to CampusPlan server."
+            : error.message,
+        ) +
+        "</p>";
     }
   }
   async function openConversation(userId, profile) {
@@ -1439,14 +1689,25 @@ function setupMessagesV2() {
       activeUser = result.user;
       activeMessages = result.messages || [];
       rememberProfile(activeUser);
-      await messagesRequest("/" + encodeURIComponent(userId) + "/read", { method: "PUT" });
-      const summary = conversations.find((conversation) => String(conversation.user.id) === String(userId));
+      await messagesRequest("/" + encodeURIComponent(userId) + "/read", {
+        method: "PUT",
+      });
+      const summary = conversations.find(
+        (conversation) => String(conversation.user.id) === String(userId),
+      );
       if (summary) summary.unreadCount = 0;
       renderList();
       renderChat();
       document.getElementById("private-chat").classList.add("mobile-open");
     } catch (error) {
-      document.getElementById("private-messages").innerHTML = '<p class="empty-state">' + esc(error.message === "Failed to fetch" ? "Unable to connect to CampusPlan server." : error.message) + "</p>";
+      document.getElementById("private-messages").innerHTML =
+        '<p class="empty-state">' +
+        esc(
+          error.message === "Failed to fetch"
+            ? "Unable to connect to CampusPlan server."
+            : error.message,
+        ) +
+        "</p>";
     }
   }
   async function renderSearchResults() {
@@ -1456,14 +1717,36 @@ function setupMessagesV2() {
       return;
     }
     try {
-      const result = await messagesRequest("/students?search=" + encodeURIComponent(query));
+      const result = await messagesRequest(
+        "/students?search=" + encodeURIComponent(query),
+      );
       const people = result.students || [];
       people.forEach(rememberProfile);
       results.innerHTML = people.length
-        ? people.map((student) => '<button class="student-result" type="button" data-start="' + student.id + '">' + avatarFor(student) + '<span><b>' + esc(student.fullName) + '</b><small>' + esc(student.studentId + " · " + student.program + " · " + student.yearOfStudy) + '</small></span></button>').join("")
+        ? people
+            .map(
+              (student) =>
+                '<button class="student-result" type="button" data-start="' +
+                student.id +
+                '">' +
+                avatarFor(student) +
+                "<span><b>" +
+                esc(student.fullName) +
+                "</b><small>" +
+                esc(
+                  student.studentId +
+                    " · " +
+                    student.program +
+                    " · " +
+                    student.yearOfStudy,
+                ) +
+                "</small></span></button>",
+            )
+            .join("")
         : '<p class="empty-state">No students found.</p>';
     } catch (error) {
-      results.innerHTML = '<p class="empty-state">' + esc(error.message) + "</p>";
+      results.innerHTML =
+        '<p class="empty-state">' + esc(error.message) + "</p>";
     }
   }
   async function loadStudentOptions() {
@@ -1471,19 +1754,34 @@ function setupMessagesV2() {
       const result = await messagesRequest("/students");
       const people = result.students || [];
       people.forEach(rememberProfile);
-      document.getElementById("new-message-student").innerHTML = people.map((student) => '<option value="' + student.id + '">' + esc(student.fullName) + "</option>").join("");
+      document.getElementById("new-message-student").innerHTML = people
+        .map(
+          (student) =>
+            '<option value="' +
+            student.id +
+            '">' +
+            esc(student.fullName) +
+            "</option>",
+        )
+        .join("");
     } catch (error) {
-      document.getElementById("new-message-student").innerHTML = '<option value="">Unable to load students</option>';
+      document.getElementById("new-message-student").innerHTML =
+        '<option value="">Unable to load students</option>';
     }
   }
   search.oninput = renderSearchResults;
   results.onclick = (event) => {
     const button = event.target.closest("[data-start]");
-    if (button) openConversation(button.dataset.start, profileFor(button.dataset.start));
+    if (button)
+      openConversation(button.dataset.start, profileFor(button.dataset.start));
   };
   list.onclick = (event) => {
     const item = event.target.closest("[data-conversation-user]");
-    if (item) openConversation(item.dataset.conversationUser, profileFor(item.dataset.conversationUser));
+    if (item)
+      openConversation(
+        item.dataset.conversationUser,
+        profileFor(item.dataset.conversationUser),
+      );
   };
   document.getElementById("private-form").onsubmit = async (event) => {
     event.preventDefault();
@@ -1496,7 +1794,10 @@ function setupMessagesV2() {
       return;
     }
     try {
-      const result = await messagesRequest("/" + encodeURIComponent(activeUserId), { method: "POST", body: JSON.stringify({ content }) });
+      const result = await messagesRequest(
+        "/" + encodeURIComponent(activeUserId),
+        { method: "POST", body: JSON.stringify({ content }) },
+      );
       activeMessages.push(result.message);
       input.value = "";
       renderChat();
@@ -1518,70 +1819,196 @@ function setupMessagesV2() {
     document.getElementById("private-input").value = text;
     document.getElementById("private-form").requestSubmit();
   };
-  document.getElementById("back-to-list").onclick = () => document.getElementById("private-chat").classList.remove("mobile-open");
+  document.getElementById("back-to-list").onclick = () =>
+    document.getElementById("private-chat").classList.remove("mobile-open");
   document.getElementById("clear-conversation").onclick = () => {
-    document.getElementById("private-messages").innerHTML = '<p class="empty-state">Conversation history is stored on the server.</p>';
+    document.getElementById("private-messages").innerHTML =
+      '<p class="empty-state">Conversation history is stored on the server.</p>';
   };
   loadStudentOptions();
   loadConversations();
   renderChat();
 }
 
-function setupGroupsV2() {
+function setupGroupsLocalPrototype() {
   if (document.body.dataset.page !== "groups") return;
   const me = currentUser();
   const storageKey = userKey("campusplan-groups");
   let groups = JSON.parse(localStorage.getItem(storageKey) || "null");
   if (!groups) {
     groups = [
-      { id: "g1", name: "Database Study Group", course: "Database Design", type: "Study Group", description: "Revision and assignment support.", createdBy: me.studentId, members: [me.studentId, "sarah-m", "john-k"], messages: [{ id: "gm1", senderId: "sarah-m", text: "Who is preparing the ERD?", timestamp: new Date().toISOString(), read: false }] },
-      { id: "g2", name: "Networking Presentation", course: "Local Area Networking", type: "Presentation Group", description: "Planning the network layer presentation.", createdBy: me.studentId, members: [me.studentId, "sarah-m", "michael-o"], messages: [] },
-      { id: "g3", name: "Statistics Study Group", course: "Probability & Statistics", type: "Study Group", description: "Weekly practice and test revision.", createdBy: me.studentId, members: [me.studentId, "grace-n"], messages: [] },
+      {
+        id: "g1",
+        name: "Database Study Group",
+        course: "Database Design",
+        type: "Study Group",
+        description: "Revision and assignment support.",
+        createdBy: me.studentId,
+        members: [me.studentId, "sarah-m", "john-k"],
+        messages: [
+          {
+            id: "gm1",
+            senderId: "sarah-m",
+            text: "Who is preparing the ERD?",
+            timestamp: new Date().toISOString(),
+            read: false,
+          },
+        ],
+      },
+      {
+        id: "g2",
+        name: "Networking Presentation",
+        course: "Local Area Networking",
+        type: "Presentation Group",
+        description: "Planning the network layer presentation.",
+        createdBy: me.studentId,
+        members: [me.studentId, "sarah-m", "michael-o"],
+        messages: [],
+      },
+      {
+        id: "g3",
+        name: "Statistics Study Group",
+        course: "Probability & Statistics",
+        type: "Study Group",
+        description: "Weekly practice and test revision.",
+        createdBy: me.studentId,
+        members: [me.studentId, "grace-n"],
+        messages: [],
+      },
     ];
   }
   groups = groups.map((group) => ({
     ...group,
     createdBy: group.createdBy || me.studentId,
-    members: (group.members || []).map((member) => typeof member === "string" && member.includes("—") ? me.studentId : member),
-    messages: (group.messages || []).map((message, index) => typeof message === "string" ? { id: "legacy-group-message-" + index, senderId: "sarah-m", text: message, timestamp: new Date().toISOString(), read: false } : message),
+    members: (group.members || []).map((member) =>
+      typeof member === "string" && member.includes("—")
+        ? me.studentId
+        : member,
+    ),
+    messages: (group.messages || []).map((message, index) =>
+      typeof message === "string"
+        ? {
+            id: "legacy-group-message-" + index,
+            senderId: "sarah-m",
+            text: message,
+            timestamp: new Date().toISOString(),
+            read: false,
+          }
+        : message,
+    ),
   }));
   let activeId = groups[0] ? groups[0].id : null;
-  function save() { localStorage.setItem(storageKey, JSON.stringify(groups)); }
+  function save() {
+    localStorage.setItem(storageKey, JSON.stringify(groups));
+  }
   function renderCards() {
     ["private-groups", "communities"].forEach((id) => {
       const community = id === "communities";
-      document.getElementById(id).innerHTML = groups
-        .filter((group) => (group.type === "Course Community") === community)
-        .map((group) => {
-          const last = group.messages[group.messages.length - 1];
-          const unread = group.messages.filter((message) => message.senderId !== me.studentId && !message.read).length;
-          return '<article class="group-card"><div class="group-card-top">' + groupAvatarMarkup(group) + '<div><h2>' + esc(group.name) + '</h2><p>' + esc(group.description) + '</p></div></div><div class="group-card-meta"><span>' + esc(group.course) + " · " + group.members.length + " members</span><span>" + (last ? esc(formatMessageTime(last.timestamp)) : "No messages") + (unread ? ' <b class="unread">' + unread + "</b>" : "") + '</span></div><p class="group-last-message">' + esc(last ? last.text : "Start collaborating with your group") + '</p><button class="button small" data-group="' + group.id + '">Open group</button></article>';
-        }).join("") || '<p class="empty-state">No groups yet.</p>';
+      document.getElementById(id).innerHTML =
+        groups
+          .filter((group) => (group.type === "Course Community") === community)
+          .map((group) => {
+            const last = group.messages[group.messages.length - 1];
+            const unread = group.messages.filter(
+              (message) => message.senderId !== me.studentId && !message.read,
+            ).length;
+            return (
+              '<article class="group-card"><div class="group-card-top">' +
+              groupAvatarMarkup(group) +
+              "<div><h2>" +
+              esc(group.name) +
+              "</h2><p>" +
+              esc(group.description) +
+              '</p></div></div><div class="group-card-meta"><span>' +
+              esc(group.course) +
+              " · " +
+              group.members.length +
+              " members</span><span>" +
+              (last ? esc(formatMessageTime(last.timestamp)) : "No messages") +
+              (unread ? ' <b class="unread">' + unread + "</b>" : "") +
+              '</span></div><p class="group-last-message">' +
+              esc(last ? last.text : "Start collaborating with your group") +
+              '</p><button class="button small" data-group="' +
+              group.id +
+              '">Open group</button></article>'
+            );
+          })
+          .join("") || '<p class="empty-state">No groups yet.</p>';
     });
   }
   function renderGroup() {
     const group = groups.find((item) => item.id === activeId);
     if (!group) return;
-    document.querySelector("#group-chat .group-avatar").outerHTML = groupAvatarMarkup(group).replace(
-      /<(img|span) /,
-      '<$1 class="avatar group-avatar" ',
-    );
+    document.querySelector("#group-chat .group-avatar").outerHTML =
+      groupAvatarMarkup(group).replace(
+        /<(img|span) /,
+        '<$1 class="avatar group-avatar" ',
+      );
     document.getElementById("group-name").textContent = group.name;
-    document.getElementById("group-description").textContent = group.description;
-    document.getElementById("group-member-count").textContent = group.members.length + " members";
+    document.getElementById("group-description").textContent =
+      group.description;
+    document.getElementById("group-member-count").textContent =
+      group.members.length + " members";
     document.getElementById("group-edit-name").value = group.name;
     document.getElementById("group-edit-description").value = group.description;
     document.getElementById("group-add-member").innerHTML = students
       .filter((student) => !group.members.includes(student.studentId))
-      .map((student) => '<option value="' + student.studentId + '">' + esc(student.name) + "</option>")
+      .map(
+        (student) =>
+          '<option value="' +
+          student.studentId +
+          '">' +
+          esc(student.name) +
+          "</option>",
+      )
       .join("");
-    document.getElementById("group-messages").innerHTML = group.messages.length ? group.messages.map((message) => '<div class="message-row ' + (message.senderId === me.studentId ? "sent-row" : "received-row") + '">' + avatarMarkup(message.senderId) + '<div class="bubble ' + (message.senderId === me.studentId ? "sent" : "received") + '"><b class="message-sender">' + esc((getUserProfile(message.senderId) || {}).name || "Student") + '</b><span>' + esc(message.text) + '</span><time>' + formatMessageTime(message.timestamp) + '</time></div></div>').join("") : '<p class="empty-state chat-empty">No group messages yet.</p>';
+    document.getElementById("group-messages").innerHTML = group.messages.length
+      ? group.messages
+          .map(
+            (message) =>
+              '<div class="message-row ' +
+              (message.senderId === me.studentId
+                ? "sent-row"
+                : "received-row") +
+              '">' +
+              avatarMarkup(message.senderId) +
+              '<div class="bubble ' +
+              (message.senderId === me.studentId ? "sent" : "received") +
+              '"><b class="message-sender">' +
+              esc((getUserProfile(message.senderId) || {}).name || "Student") +
+              "</b><span>" +
+              esc(message.text) +
+              "</span><time>" +
+              formatMessageTime(message.timestamp) +
+              "</time></div></div>",
+          )
+          .join("")
+      : '<p class="empty-state chat-empty">No group messages yet.</p>';
     const readKeys = group.messages
       .filter((message) => message.senderId !== me.studentId && !message.read)
       .map((message) => "group:" + group.id + ":" + message.id);
-    group.messages.forEach((message) => { if (message.senderId !== me.studentId) message.read = true; });
+    group.messages.forEach((message) => {
+      if (message.senderId !== me.studentId) message.read = true;
+    });
     markCommunicationNotificationsRead(readKeys);
-    document.getElementById("member-list").innerHTML = group.members.map((memberId) => '<div class="member">' + avatarMarkup(memberId) + '<span>' + esc((getUserProfile(memberId) || {}).name || memberId) + '</span><small>' + (memberId === group.createdBy ? "Admin" : "Member") + '</small>' + (group.createdBy === me.studentId && memberId !== me.studentId ? '<button class="text-button danger" data-remove-member="' + memberId + '">Remove</button>' : "") + '</div>').join("");
+    document.getElementById("member-list").innerHTML = group.members
+      .map(
+        (memberId) =>
+          '<div class="member">' +
+          avatarMarkup(memberId) +
+          "<span>" +
+          esc((getUserProfile(memberId) || {}).name || memberId) +
+          "</span><small>" +
+          (memberId === group.createdBy ? "Admin" : "Member") +
+          "</small>" +
+          (group.createdBy === me.studentId && memberId !== me.studentId
+            ? '<button class="text-button danger" data-remove-member="' +
+              memberId +
+              '">Remove</button>'
+            : "") +
+          "</div>",
+      )
+      .join("");
     save();
     renderCards();
     renderNotificationList();
@@ -1593,17 +2020,40 @@ function setupGroupsV2() {
       activeId = button.dataset.group;
       document.getElementById("group-chat").hidden = false;
       renderGroup();
-      document.getElementById("group-chat").scrollIntoView({ behavior: "smooth" });
+      document
+        .getElementById("group-chat")
+        .scrollIntoView({ behavior: "smooth" });
     };
   });
-  document.getElementById("group-form").onsubmit = (event) => { event.preventDefault(); const input = document.getElementById("group-input"); const text = input.value.trim(); const group = groups.find((item) => item.id === activeId); if (!group || !text) return; group.messages.push({ id: "group-message-" + Date.now(), senderId: me.studentId, text, timestamp: new Date().toISOString(), read: true }); input.value = ""; renderGroup(); };
-  document.getElementById("group-info-toggle").onclick = () => document.getElementById("group-info").hidden = !document.getElementById("group-info").hidden;
-  document.getElementById("group-back").onclick = () => document.getElementById("group-chat").hidden = true;
+  document.getElementById("group-form").onsubmit = (event) => {
+    event.preventDefault();
+    const input = document.getElementById("group-input");
+    const text = input.value.trim();
+    const group = groups.find((item) => item.id === activeId);
+    if (!group || !text) return;
+    group.messages.push({
+      id: "group-message-" + Date.now(),
+      senderId: me.studentId,
+      text,
+      timestamp: new Date().toISOString(),
+      read: true,
+    });
+    input.value = "";
+    renderGroup();
+  };
+  document.getElementById("group-info-toggle").onclick = () =>
+    (document.getElementById("group-info").hidden =
+      !document.getElementById("group-info").hidden);
+  document.getElementById("group-back").onclick = () =>
+    (document.getElementById("group-chat").hidden = true);
   document.getElementById("group-save-info").onclick = () => {
     const group = groups.find((item) => item.id === activeId);
     if (!group || group.createdBy !== me.studentId) return;
-    group.name = document.getElementById("group-edit-name").value.trim() || group.name;
-    group.description = document.getElementById("group-edit-description").value.trim() || group.description;
+    group.name =
+      document.getElementById("group-edit-name").value.trim() || group.name;
+    group.description =
+      document.getElementById("group-edit-description").value.trim() ||
+      group.description;
     save();
     renderGroup();
   };
@@ -1639,10 +2089,388 @@ function setupGroupsV2() {
     document.getElementById("group-chat").hidden = true;
     renderCards();
   };
-  document.getElementById("member-list").onclick = (event) => { const button = event.target.closest("[data-remove-member]"); if (!button) return; const group = groups.find((item) => item.id === activeId); group.members = group.members.filter((member) => member !== button.dataset.removeMember); renderGroup(); };
-  document.getElementById("group-create-form").onsubmit = (event) => { event.preventDefault(); groups.push({ id: "g" + Date.now(), name: document.getElementById("group-title").value.trim(), course: document.getElementById("group-course").value.trim(), type: document.getElementById("group-type").value, description: document.getElementById("group-description-input").value.trim(), createdBy: me.studentId, members: [me.studentId], messages: [] }); save(); event.target.reset(); document.getElementById("group-modal").hidden = true; renderCards(); };
+  document.getElementById("member-list").onclick = (event) => {
+    const button = event.target.closest("[data-remove-member]");
+    if (!button) return;
+    const group = groups.find((item) => item.id === activeId);
+    group.members = group.members.filter(
+      (member) => member !== button.dataset.removeMember,
+    );
+    renderGroup();
+  };
+  document.getElementById("group-create-form").onsubmit = (event) => {
+    event.preventDefault();
+    groups.push({
+      id: "g" + Date.now(),
+      name: document.getElementById("group-title").value.trim(),
+      course: document.getElementById("group-course").value.trim(),
+      type: document.getElementById("group-type").value,
+      description: document
+        .getElementById("group-description-input")
+        .value.trim(),
+      createdBy: me.studentId,
+      members: [me.studentId],
+      messages: [],
+    });
+    save();
+    event.target.reset();
+    document.getElementById("group-modal").hidden = true;
+    renderCards();
+  };
   syncCommunicationNotifications([], groups);
   renderCards();
+}
+
+function setupGroupsV2() {
+  if (document.body.dataset.page !== "groups") return;
+
+  const photoStorageKey = userKey("campusplan-group-photos");
+  let groupPhotos = {};
+  let groups = [];
+  let studentsForGroups = [];
+  let activeGroup = null;
+
+  try {
+    groupPhotos = JSON.parse(localStorage.getItem(photoStorageKey) || "{}") || {};
+  } catch (error) {
+    groupPhotos = {};
+  }
+
+  function saveGroupPhotos() {
+    localStorage.setItem(photoStorageKey, JSON.stringify(groupPhotos));
+  }
+
+  function withLocalPhoto(group) {
+    return { ...group, photo: groupPhotos[group.id] || "" };
+  }
+
+  function memberAvatar(member) {
+    const savedProfile = getUserProfile(member.studentId) || {};
+    return profileAvatarMarkup({
+      fullName: member.fullName,
+      photo: savedProfile.photo,
+    });
+  }
+
+  function renderCards() {
+    ["private-groups", "communities"].forEach((id) => {
+      const community = id === "communities";
+      const container = document.getElementById(id);
+      const matchingGroups = groups.filter(
+        (group) => (group.type === "Course Community") === community,
+      );
+      container.innerHTML = matchingGroups.length
+        ? matchingGroups
+            .map((group) => {
+              const unread = Number(group.unreadCount || 0);
+              return (
+                '<article class="group-card"><div class="group-card-top">' +
+                groupAvatarMarkup(group) +
+                "<div><h2>" +
+                esc(group.name) +
+                "</h2><p>" +
+                esc(group.description) +
+                '</p></div></div><div class="group-card-meta"><span>' +
+                esc(group.course) +
+                " Â· " +
+                group.memberCount +
+                " members</span><span>" +
+                (group.latestMessageAt
+                  ? esc(formatMessageTime(group.latestMessageAt))
+                  : "No messages") +
+                (unread ? ' <b class="unread">' + unread + "</b>" : "") +
+                '</span></div><p class="group-last-message">' +
+                esc(group.latestMessage || "Start collaborating with your group") +
+                '</p><button class="button small" data-group="' +
+                group.id +
+                '">Open group</button></article>'
+              );
+            })
+            .join("")
+        : '<p class="empty-state">No groups yet.</p>';
+    });
+  }
+
+  function renderGroup() {
+    if (!activeGroup) return;
+    const canAdmin = activeGroup.currentUserRole === "admin";
+    document.querySelector("#group-chat .group-avatar").outerHTML =
+      groupAvatarMarkup(activeGroup);
+    document.getElementById("group-name").textContent = activeGroup.name;
+    document.getElementById("group-description").textContent = activeGroup.description;
+    document.getElementById("group-member-count").textContent =
+      activeGroup.memberCount + " members";
+    document.getElementById("group-edit-name").value = activeGroup.name;
+    document.getElementById("group-edit-description").value = activeGroup.description;
+    document.getElementById("group-save-info").hidden = !canAdmin;
+    document.getElementById("group-photo-input").closest("label").hidden = !canAdmin;
+    document.getElementById("group-edit-name").disabled = !canAdmin;
+    document.getElementById("group-edit-description").disabled = !canAdmin;
+    document.querySelector(".group-member-tools").hidden = !canAdmin;
+
+    const memberIds = new Set(activeGroup.members.map((member) => member.id));
+    document.getElementById("group-add-member").innerHTML = studentsForGroups
+      .filter((student) => !memberIds.has(student.id))
+      .map(
+        (student) =>
+          '<option value="' + student.id + '">' + esc(student.fullName) + "</option>",
+      )
+      .join("");
+
+    document.getElementById("group-messages").innerHTML = activeGroup.messages.length
+      ? activeGroup.messages
+          .map(
+            (message) =>
+              '<div class="message-row ' +
+              (message.senderId === currentUser().id ? "sent-row" : "received-row") +
+              '">' +
+              memberAvatar({
+                fullName: message.senderName,
+                studentId: message.senderStudentId,
+              }) +
+              '<div class="bubble ' +
+              (message.senderId === currentUser().id ? "sent" : "received") +
+              '"><b class="message-sender">' +
+              esc(message.senderName) +
+              "</b><span>" +
+              esc(message.content) +
+              "</span><time>" +
+              esc(formatMessageTime(message.createdAt)) +
+              "</time></div></div>",
+          )
+          .join("")
+      : '<p class="empty-state chat-empty">No group messages yet.</p>';
+
+    document.getElementById("member-list").innerHTML = activeGroup.members
+      .map(
+        (member) =>
+          '<div class="member">' +
+          memberAvatar(member) +
+          "<span>" +
+          esc(member.fullName) +
+          "</span><small>" +
+          (member.role === "admin" ? "Admin" : "Member") +
+          "</small>" +
+          (canAdmin && member.id !== currentUser().id
+            ? '<button class="text-button danger" data-remove-member="' +
+              member.id +
+              '">Remove</button>'
+            : "") +
+          "</div>",
+      )
+      .join("");
+  }
+
+  async function loadGroups() {
+    try {
+      const result = await groupsRequest();
+      groups = (result.groups || []).map(withLocalPhoto);
+      renderCards();
+    } catch (error) {
+      const message = '<p class="empty-state">' + esc(error.message) + "</p>";
+      document.getElementById("private-groups").innerHTML = message;
+      document.getElementById("communities").innerHTML = message;
+    }
+  }
+
+  async function loadStudents() {
+    try {
+      const result = await groupsRequest("/students/search");
+      studentsForGroups = result.students || [];
+    } catch (error) {
+      studentsForGroups = [];
+    }
+  }
+
+  async function openGroup(id) {
+    try {
+      const [details, messageResult] = await Promise.all([
+        groupsRequest("/" + encodeURIComponent(id)),
+        groupsRequest("/" + encodeURIComponent(id) + "/messages"),
+      ]);
+      activeGroup = withLocalPhoto({
+        ...details.group,
+        members: details.members || [],
+        messages: messageResult.messages || [],
+      });
+      activeGroup.unreadCount = 0;
+      groups = groups.map((group) =>
+        group.id === activeGroup.id ? { ...group, ...activeGroup } : group,
+      );
+      document.getElementById("group-chat").hidden = false;
+      renderGroup();
+      renderCards();
+      groupsRequest("/" + encodeURIComponent(id) + "/messages/read", {
+        method: "PUT",
+      }).catch(() => {});
+      document.getElementById("group-chat").scrollIntoView({ behavior: "smooth" });
+    } catch (error) {
+      document.getElementById("group-messages").innerHTML =
+        '<p class="empty-state chat-empty">' + esc(error.message) + "</p>";
+    }
+  }
+
+  ["private-groups", "communities"].forEach((id) => {
+    document.getElementById(id).onclick = (event) => {
+      const button = event.target.closest("[data-group]");
+      if (button) openGroup(button.dataset.group);
+    };
+  });
+
+  document.getElementById("group-form").onsubmit = async (event) => {
+    event.preventDefault();
+    if (!activeGroup) return;
+    const input = document.getElementById("group-input");
+    const content = input.value.trim();
+    if (!content) return;
+    try {
+      const result = await groupsRequest(
+        "/" + encodeURIComponent(activeGroup.id) + "/messages",
+        { method: "POST", body: JSON.stringify({ content }) },
+      );
+      activeGroup.messages.push(result.message);
+      activeGroup.latestMessage = result.message.content;
+      activeGroup.latestMessageAt = result.message.createdAt;
+      input.value = "";
+      renderGroup();
+      renderCards();
+    } catch (error) {
+      alert(error.message);
+    }
+  };
+
+  document.getElementById("group-info-toggle").onclick = () => {
+    const info = document.getElementById("group-info");
+    info.hidden = !info.hidden;
+  };
+  document.getElementById("group-back").onclick = () => {
+    document.getElementById("group-chat").hidden = true;
+  };
+
+  document.getElementById("group-save-info").onclick = async () => {
+    if (!activeGroup) return;
+    const name = document.getElementById("group-edit-name").value.trim();
+    const description = document.getElementById("group-edit-description").value.trim();
+    try {
+      const result = await groupsRequest("/" + encodeURIComponent(activeGroup.id), {
+        method: "PUT",
+        body: JSON.stringify({
+          name,
+          description,
+          course: activeGroup.course,
+          type: activeGroup.type,
+        }),
+      });
+      activeGroup = withLocalPhoto({
+        ...result.group,
+        members: result.members || activeGroup.members,
+        messages: activeGroup.messages,
+      });
+      groups = groups.map((group) =>
+        group.id === activeGroup.id ? { ...group, ...activeGroup } : group,
+      );
+      renderGroup();
+      renderCards();
+    } catch (error) {
+      alert(error.message);
+    }
+  };
+
+  document.getElementById("group-photo-input").onchange = () => {
+    if (!activeGroup) return;
+    const input = document.getElementById("group-photo-input");
+    const file = input.files[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/") || file.size > 2 * 1024 * 1024) {
+      input.value = "";
+      alert("Please choose an image smaller than 2 MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      groupPhotos[activeGroup.id] = reader.result;
+      saveGroupPhotos();
+      activeGroup.photo = reader.result;
+      groups = groups.map((group) =>
+        group.id === activeGroup.id ? { ...group, photo: reader.result } : group,
+      );
+      renderGroup();
+      renderCards();
+    };
+    reader.readAsDataURL(file);
+  };
+
+  document.getElementById("group-add-member-button").onclick = async () => {
+    if (!activeGroup) return;
+    const userId = Number(document.getElementById("group-add-member").value);
+    if (!Number.isInteger(userId) || userId <= 0) return;
+    try {
+      await groupsRequest("/" + encodeURIComponent(activeGroup.id) + "/members", {
+        method: "POST",
+        body: JSON.stringify({ userId }),
+      });
+      await openGroup(activeGroup.id);
+      await loadGroups();
+    } catch (error) {
+      alert(error.message);
+    }
+  };
+
+  document.getElementById("group-leave").onclick = async () => {
+    if (!activeGroup) return;
+    try {
+      await groupsRequest("/" + encodeURIComponent(activeGroup.id) + "/leave", {
+        method: "POST",
+      });
+      activeGroup = null;
+      document.getElementById("group-chat").hidden = true;
+      await loadGroups();
+    } catch (error) {
+      alert(error.message);
+    }
+  };
+
+  document.getElementById("member-list").onclick = async (event) => {
+    const button = event.target.closest("[data-remove-member]");
+    if (!button || !activeGroup) return;
+    try {
+      await groupsRequest(
+        "/" +
+          encodeURIComponent(activeGroup.id) +
+          "/members/" +
+          encodeURIComponent(button.dataset.removeMember),
+        { method: "DELETE" },
+      );
+      await openGroup(activeGroup.id);
+      await loadGroups();
+    } catch (error) {
+      alert(error.message);
+    }
+  };
+
+  document.getElementById("group-create-form").onsubmit = async (event) => {
+    event.preventDefault();
+    const form = event.target;
+    try {
+      const result = await groupsRequest("", {
+        method: "POST",
+        body: JSON.stringify({
+          name: document.getElementById("group-title").value.trim(),
+          course: document.getElementById("group-course").value.trim(),
+          description: document.getElementById("group-description-input").value.trim(),
+          type: document.getElementById("group-type").value,
+        }),
+      });
+      form.reset();
+      document.getElementById("group-modal").hidden = true;
+      groups.unshift(withLocalPhoto(result.group));
+      renderCards();
+    } catch (error) {
+      alert(error.message);
+    }
+  };
+
+  Promise.all([loadStudents(), loadGroups()]);
 }
 
 function setupGroups() {
@@ -1876,15 +2704,23 @@ function setupAuth() {
           method: "POST",
           body: JSON.stringify(registration),
         });
-        document.getElementById("register-success").textContent = result.message;
+        document.getElementById("register-success").textContent =
+          result.message;
         setTimeout(() => (location.href = "login.html"), 800);
       } catch (error) {
         if (!(error instanceof TypeError)) {
-          document.getElementById("register-success").textContent = error.message;
+          document.getElementById("register-success").textContent =
+            error.message;
           return;
         }
         const users = JSON.parse(localStorage.getItem(USER_KEY) || "[]");
-        if (users.some((userRecord) => userRecord.email === registration.email || userRecord.studentId === registration.studentId)) {
+        if (
+          users.some(
+            (userRecord) =>
+              userRecord.email === registration.email ||
+              userRecord.studentId === registration.studentId,
+          )
+        ) {
           document.getElementById("register-success").textContent =
             "An account with this email or Student ID already exists.";
           return;
@@ -1961,7 +2797,8 @@ function setupAuth() {
           user.photo = reader.result;
           localStorage.setItem(SESSION_KEY, JSON.stringify(user));
           const users = JSON.parse(localStorage.getItem(USER_KEY) || "[]").map(
-            (savedUser) => savedUser.studentId === user.studentId ? user : savedUser,
+            (savedUser) =>
+              savedUser.studentId === user.studentId ? user : savedUser,
           );
           localStorage.setItem(USER_KEY, JSON.stringify(users));
           setPhotoPreview(user.photo);
@@ -1976,7 +2813,8 @@ function setupAuth() {
         delete user.photo;
         localStorage.setItem(SESSION_KEY, JSON.stringify(user));
         const users = JSON.parse(localStorage.getItem(USER_KEY) || "[]").map(
-          (savedUser) => savedUser.studentId === user.studentId ? user : savedUser,
+          (savedUser) =>
+            savedUser.studentId === user.studentId ? user : savedUser,
         );
         localStorage.setItem(USER_KEY, JSON.stringify(users));
         setPhotoPreview();
@@ -2089,7 +2927,9 @@ async function loadCalendarData() {
       const raw = localStorage.getItem(legacyKey);
       if (raw) {
         const legacyEvents = JSON.parse(raw);
-        const importedIds = new Set(JSON.parse(localStorage.getItem(progressKey) || "[]"));
+        const importedIds = new Set(
+          JSON.parse(localStorage.getItem(progressKey) || "[]"),
+        );
         for (const event of Array.isArray(legacyEvents) ? legacyEvents : []) {
           if (importedIds.has(String(event.id))) continue;
           await calendarRequest("", {
@@ -2153,7 +2993,9 @@ function saveNotifications(notifications) {
 }
 
 function buildAcademicEventList() {
-  const assignmentEvents = (calendarAcademicStore.assignments || get("assignments")).map((item) => ({
+  const assignmentEvents = (
+    calendarAcademicStore.assignments || get("assignments")
+  ).map((item) => ({
     id: "assignment-" + item.id,
     title: item.title,
     type: "Assignment",
@@ -2166,20 +3008,24 @@ function buildAcademicEventList() {
     eventType: "assignment",
   }));
 
-  const testEvents = (calendarAcademicStore.tests || get("tests")).map((item) => ({
-    id: "test-" + item.id,
-    title: item.title,
-    type: "Test",
-    course: item.course,
-    date: item.date,
-    time: item.time,
-    description: item.room ? "Test in room " + item.room : "Academic test",
-    status: "Scheduled",
-    priority: "Medium",
-    eventType: "test",
-  }));
+  const testEvents = (calendarAcademicStore.tests || get("tests")).map(
+    (item) => ({
+      id: "test-" + item.id,
+      title: item.title,
+      type: "Test",
+      course: item.course,
+      date: item.date,
+      time: item.time,
+      description: item.room ? "Test in room " + item.room : "Academic test",
+      status: "Scheduled",
+      priority: "Medium",
+      eventType: "test",
+    }),
+  );
 
-  const presentationEvents = (calendarAcademicStore.presentations || get("presentations")).map((item) => ({
+  const presentationEvents = (
+    calendarAcademicStore.presentations || get("presentations")
+  ).map((item) => ({
     id: "presentation-" + item.id,
     title: item.title,
     type: "Presentation",
@@ -2218,14 +3064,20 @@ function buildAcademicEventList() {
     personalEventId: item.id,
   }));
 
-  return [...assignmentEvents, ...testEvents, ...presentationEvents, ...reminderEvents, ...personalEvents].sort(
-    (a, b) => a.date.localeCompare(b.date),
-  );
+  return [
+    ...assignmentEvents,
+    ...testEvents,
+    ...presentationEvents,
+    ...reminderEvents,
+    ...personalEvents,
+  ].sort((a, b) => a.date.localeCompare(b.date));
 }
 
 function generateAcademicNotifications() {
   const notifications = getNotifications();
-  const seenKeys = new Set(notifications.map((item) => item.eventKey || item.id));
+  const seenKeys = new Set(
+    notifications.map((item) => item.eventKey || item.id),
+  );
   const next = [...notifications];
   const events = buildAcademicEventList();
 
@@ -2315,7 +3167,9 @@ function updateNotificationBadge() {
 
 function renderNotificationList() {
   const notificationList = document.getElementById("notification-list");
-  const dashboardNotifications = document.getElementById("dashboard-notifications");
+  const dashboardNotifications = document.getElementById(
+    "dashboard-notifications",
+  );
   const notifications = getNotifications()
     .slice()
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -2345,7 +3199,10 @@ function renderNotificationList() {
 }
 
 function markAllNotificationsRead() {
-  const notifications = getNotifications().map((item) => ({ ...item, read: true }));
+  const notifications = getNotifications().map((item) => ({
+    ...item,
+    read: true,
+  }));
   saveNotifications(notifications);
   renderNotificationList();
 }
@@ -2447,37 +3304,37 @@ function renderDashboardReminders() {
   const items = buildAcademicEventList().slice(0, 5);
   container.innerHTML = items.length
     ? '<div class="reminder-stack">' +
-        items
-          .map((event) => {
-            const daysLeft = getDayDifference(event.date);
-            const level = getReminderLevel(daysLeft);
-            const label =
-              daysLeft === 0
-                ? "Due today"
-                : daysLeft === 1
-                  ? "Due tomorrow"
-                  : daysLeft > 0
-                    ? "Due in " + daysLeft + " days"
-                    : Math.abs(daysLeft) + " days overdue";
+      items
+        .map((event) => {
+          const daysLeft = getDayDifference(event.date);
+          const level = getReminderLevel(daysLeft);
+          const label =
+            daysLeft === 0
+              ? "Due today"
+              : daysLeft === 1
+                ? "Due tomorrow"
+                : daysLeft > 0
+                  ? "Due in " + daysLeft + " days"
+                  : Math.abs(daysLeft) + " days overdue";
 
-            return (
-              '<div class="reminder-item"><strong>' +
-              esc(event.title) +
-              '</strong><small>' +
-              esc(event.type) +
-              " • " +
-              esc(event.course) +
-              "</small><span class=\"reminder-status " +
-              level.className +
-              "\">" +
-              level.label +
-              "</span><small>" +
-              label +
-              "</small></div>"
-            );
-          })
-          .join("") +
-        "</div>"
+          return (
+            '<div class="reminder-item"><strong>' +
+            esc(event.title) +
+            "</strong><small>" +
+            esc(event.type) +
+            " • " +
+            esc(event.course) +
+            '</small><span class="reminder-status ' +
+            level.className +
+            '">' +
+            level.label +
+            "</span><small>" +
+            label +
+            "</small></div>"
+          );
+        })
+        .join("") +
+      "</div>"
     : '<p class="empty-state">No reminders yet.</p>';
 }
 
@@ -2488,25 +3345,25 @@ function renderCalendarPreview() {
   const items = buildAcademicEventList().slice(0, 4);
   container.innerHTML = items.length
     ? '<div class="dashboard-mini-list">' +
-        items
-          .map((item) => {
-            const date = new Date(item.date + "T12:00:00");
-            return (
-              '<div class="dashboard-mini-item"><div class="dashboard-mini-date"><b>' +
-              date.getDate() +
-              "</b>" +
-              new Intl.DateTimeFormat("en", { month: "short" }).format(date) +
-              '</div><div class="dashboard-mini-copy"><h3>' +
-              esc(item.title) +
-              '</h3><p>' +
-              esc(item.type) +
-              " • " +
-              esc(item.course) +
-              "</p></div></div>"
-            );
-          })
-          .join("") +
-        "</div>"
+      items
+        .map((item) => {
+          const date = new Date(item.date + "T12:00:00");
+          return (
+            '<div class="dashboard-mini-item"><div class="dashboard-mini-date"><b>' +
+            date.getDate() +
+            "</b>" +
+            new Intl.DateTimeFormat("en", { month: "short" }).format(date) +
+            '</div><div class="dashboard-mini-copy"><h3>' +
+            esc(item.title) +
+            "</h3><p>" +
+            esc(item.type) +
+            " • " +
+            esc(item.course) +
+            "</p></div></div>"
+          );
+        })
+        .join("") +
+      "</div>"
     : '<p class="empty-state">No events yet.</p>';
 }
 
@@ -2547,11 +3404,20 @@ function renderCalendarPage() {
   if (!monthLabel || !grid) return;
 
   const currentMonth = document.getElementById("calendar-current-month");
-  const monthValue = currentMonth && currentMonth.dataset.month
-    ? new Date(currentMonth.dataset.month)
-    : new Date();
-  const monthStart = new Date(monthValue.getFullYear(), monthValue.getMonth(), 1);
-  const monthEnd = new Date(monthValue.getFullYear(), monthValue.getMonth() + 1, 0);
+  const monthValue =
+    currentMonth && currentMonth.dataset.month
+      ? new Date(currentMonth.dataset.month)
+      : new Date();
+  const monthStart = new Date(
+    monthValue.getFullYear(),
+    monthValue.getMonth(),
+    1,
+  );
+  const monthEnd = new Date(
+    monthValue.getFullYear(),
+    monthValue.getMonth() + 1,
+    0,
+  );
   const startingIndex = monthStart.getDay() === 0 ? 6 : monthStart.getDay() - 1;
   const eventsByDate = buildAcademicEventList().reduce((map, item) => {
     const date = item.date;
@@ -2592,7 +3458,8 @@ function renderCalendarPage() {
       const events = eventsByDate[isoDate] || [];
       const classes = ["calendar-day"];
       if (entry.otherMonth) classes.push("other-month");
-      if (isoDate === new Date().toISOString().slice(0, 10)) classes.push("today");
+      if (isoDate === new Date().toISOString().slice(0, 10))
+        classes.push("today");
       if (events.length) classes.push("calendar-day-has-events");
 
       return (
@@ -2605,7 +3472,7 @@ function renderCalendarPage() {
         (events.length ? ": " + events.length + " events" : "") +
         '"><span class="calendar-day-number">' +
         entry.date.getDate() +
-        '</span>' +
+        "</span>" +
         (events.length
           ? '<div class="calendar-event-list">' +
             events
@@ -2636,7 +3503,9 @@ function renderCalendarPage() {
 
       if (target) {
         const eventId = target.dataset.eventId;
-        const event = buildAcademicEventList().find((item) => item.id === eventId);
+        const event = buildAcademicEventList().find(
+          (item) => item.id === eventId,
+        );
         if (event) openEventModal(event);
         return;
       }
@@ -2681,22 +3550,42 @@ function openEventModal(event) {
   if (priority) priority.textContent = event.priority || "Medium";
   const actions = document.getElementById("calendar-event-actions");
   if (actions) {
-    actions.innerHTML = event.eventType === "personal"
-      ? '<button class="button secondary" type="button" id="calendar-event-edit">Edit</button><button class="button danger-button" type="button" id="calendar-event-delete">Delete</button>'
-      : '<span class="event-source-note">Managed from ' + esc(event.type === "Assignment" ? "Assignments" : event.type === "Test" ? "Tests" : event.type === "Presentation" ? "Presentations" : "Reminders") + "</span>";
+    actions.innerHTML =
+      event.eventType === "personal"
+        ? '<button class="button secondary" type="button" id="calendar-event-edit">Edit</button><button class="button danger-button" type="button" id="calendar-event-delete">Delete</button>'
+        : '<span class="event-source-note">Managed from ' +
+          esc(
+            event.type === "Assignment"
+              ? "Assignments"
+              : event.type === "Test"
+                ? "Tests"
+                : event.type === "Presentation"
+                  ? "Presentations"
+                  : "Reminders",
+          ) +
+          "</span>";
     if (event.eventType === "personal") {
-      document.getElementById("calendar-event-edit").onclick = () => openPersonalEventForm(event.personalEventId);
+      document.getElementById("calendar-event-edit").onclick = () =>
+        openPersonalEventForm(event.personalEventId);
       document.getElementById("calendar-event-delete").onclick = () => {
         if (!confirm("Delete this personal event?")) return;
-        calendarRequest("/" + encodeURIComponent(event.personalEventId), { method: "DELETE" })
+        calendarRequest("/" + encodeURIComponent(event.personalEventId), {
+          method: "DELETE",
+        })
           .then(() => {
-            savePersonalCalendarEvents(getPersonalCalendarEvents().filter((item) => String(item.id) !== String(event.personalEventId)));
+            savePersonalCalendarEvents(
+              getPersonalCalendarEvents().filter(
+                (item) => String(item.id) !== String(event.personalEventId),
+              ),
+            );
             modal.hidden = true;
             renderCalendarPage();
             generateAcademicNotifications();
           })
           .catch((error) => {
-            const notice = document.getElementById("calendar-event-description");
+            const notice = document.getElementById(
+              "calendar-event-description",
+            );
             if (notice) notice.textContent = error.message;
           });
       };
@@ -2710,15 +3599,31 @@ function openPersonalEventForm(eventId) {
   const event = getPersonalCalendarEvents().find((item) => item.id === eventId);
   const form = document.getElementById("calendar-event-form");
   if (!form) return;
-  document.getElementById("calendar-event-form-title").textContent = event ? "Edit personal event" : "Add personal event";
+  document.getElementById("calendar-event-form-title").textContent = event
+    ? "Edit personal event"
+    : "Add personal event";
   document.getElementById("calendar-personal-id").value = event ? event.id : "";
-  document.getElementById("calendar-personal-title").value = event ? event.title : "";
-  document.getElementById("calendar-personal-date").value = event ? event.date : "";
-  document.getElementById("calendar-personal-start").value = event ? event.startTime || "" : "";
-  document.getElementById("calendar-personal-end").value = event ? event.endTime || "" : "";
-  document.getElementById("calendar-personal-type").value = event ? event.type || "Personal" : "Personal";
-  document.getElementById("calendar-personal-priority").value = event ? event.priority || "Medium" : "Medium";
-  document.getElementById("calendar-personal-description").value = event ? event.description || "" : "";
+  document.getElementById("calendar-personal-title").value = event
+    ? event.title
+    : "";
+  document.getElementById("calendar-personal-date").value = event
+    ? event.date
+    : "";
+  document.getElementById("calendar-personal-start").value = event
+    ? event.startTime || ""
+    : "";
+  document.getElementById("calendar-personal-end").value = event
+    ? event.endTime || ""
+    : "";
+  document.getElementById("calendar-personal-type").value = event
+    ? event.type || "Personal"
+    : "Personal";
+  document.getElementById("calendar-personal-priority").value = event
+    ? event.priority || "Medium"
+    : "Medium";
+  document.getElementById("calendar-personal-description").value = event
+    ? event.description || ""
+    : "";
   document.getElementById("calendar-personal-error").textContent = "";
   if (eventId) document.getElementById("calendar-event-modal").hidden = true;
   document.getElementById("calendar-event-form-modal").hidden = false;
@@ -2728,7 +3633,9 @@ function openPersonalEventForm(eventId) {
 function setupPersonalCalendarEvents() {
   const form = document.getElementById("calendar-event-form");
   if (!form) return;
-  document.querySelector('[data-open-modal="calendar-event-form-modal"]').onclick = () => openPersonalEventForm();
+  document.querySelector(
+    '[data-open-modal="calendar-event-form-modal"]',
+  ).onclick = () => openPersonalEventForm();
   form.onsubmit = async (event) => {
     event.preventDefault();
     const startTime = document.getElementById("calendar-personal-start").value;
@@ -2750,17 +3657,24 @@ function setupPersonalCalendarEvents() {
       endTime,
       type: document.getElementById("calendar-personal-type").value,
       priority: document.getElementById("calendar-personal-priority").value,
-      description: document.getElementById("calendar-personal-description").value.trim(),
+      description: document
+        .getElementById("calendar-personal-description")
+        .value.trim(),
     };
     const submitButton = form.querySelector('button[type="submit"]');
     submitButton.disabled = true;
     try {
-      const result = await calendarRequest(id ? "/" + encodeURIComponent(id) : "", {
-        method: id ? "PUT" : "POST",
-        body: JSON.stringify(item),
-      });
+      const result = await calendarRequest(
+        id ? "/" + encodeURIComponent(id) : "",
+        {
+          method: id ? "PUT" : "POST",
+          body: JSON.stringify(item),
+        },
+      );
       const events = getPersonalCalendarEvents().slice();
-      const index = events.findIndex((savedEvent) => String(savedEvent.id) === String(id));
+      const index = events.findIndex(
+        (savedEvent) => String(savedEvent.id) === String(id),
+      );
       if (index === -1) events.push(result.event);
       else events[index] = result.event;
       savePersonalCalendarEvents(events);
@@ -2769,7 +3683,10 @@ function setupPersonalCalendarEvents() {
       document.getElementById("calendar-event-form-modal").hidden = true;
       renderCalendarPage();
     } catch (requestError) {
-      error.textContent = requestError.message === "Failed to fetch" ? "Unable to connect to CampusPlan server." : requestError.message;
+      error.textContent =
+        requestError.message === "Failed to fetch"
+          ? "Unable to connect to CampusPlan server."
+          : requestError.message;
     } finally {
       submitButton.disabled = false;
     }
@@ -2780,16 +3697,37 @@ function setupTimetable() {
   if (document.body.dataset.page !== "timetable") return;
   const list = document.getElementById("timetable-list");
   const form = document.getElementById("timetable-form");
-  const daysOfWeek = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-  const fields = ["course", "code", "day", "start", "end", "room", "lecturer", "notes"];
+  const daysOfWeek = [
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday",
+  ];
+  const fields = [
+    "course",
+    "code",
+    "day",
+    "start",
+    "end",
+    "room",
+    "lecturer",
+    "notes",
+  ];
   const legacyKey = userKey("campusplan-timetable");
   const migrationKey = userKey("campusplan-timetable-migrated");
   const progressKey = userKey("campusplan-timetable-migration-progress");
   const showError = (message) => {
-    list.innerHTML = '<p class="empty-state timetable-api-error">' + esc(message) + ' <button class="text-button" id="retry-timetable" type="button">Retry</button></p>';
+    list.innerHTML =
+      '<p class="empty-state timetable-api-error">' +
+      esc(message) +
+      ' <button class="text-button" id="retry-timetable" type="button">Retry</button></p>';
     document.getElementById("retry-timetable").onclick = loadTimetable;
   };
-  const saveCache = () => localStorage.setItem(legacyKey, JSON.stringify(timetableStore));
+  const saveCache = () =>
+    localStorage.setItem(legacyKey, JSON.stringify(timetableStore));
   const migrateLegacyTimetable = async () => {
     if (localStorage.getItem(migrationKey)) return;
     const raw = localStorage.getItem(legacyKey);
@@ -2804,7 +3742,9 @@ function setupTimetable() {
       return;
     }
     if (!Array.isArray(legacyEntries)) return;
-    const importedIds = new Set(JSON.parse(localStorage.getItem(progressKey) || "[]"));
+    const importedIds = new Set(
+      JSON.parse(localStorage.getItem(progressKey) || "[]"),
+    );
     for (const entry of legacyEntries) {
       if (importedIds.has(String(entry.id))) continue;
       await timetableRequest("", {
@@ -2826,37 +3766,106 @@ function setupTimetable() {
       saveCache();
       render();
     } catch (error) {
-      showError(error.message === "Failed to fetch" ? "Unable to connect to CampusPlan server." : error.message);
+      showError(
+        error.message === "Failed to fetch"
+          ? "Unable to connect to CampusPlan server."
+          : error.message,
+      );
     }
   }
   function render() {
-    const entries = timetableStore.slice().sort((a, b) => daysOfWeek.indexOf(a.day) - daysOfWeek.indexOf(b.day) || a.startTime.localeCompare(b.startTime));
-    list.innerHTML = entries.length ? daysOfWeek.map((day) => {
-      const dayEntries = entries.filter((entry) => entry.day === day);
-      if (!dayEntries.length) return "";
-      return '<section class="timetable-day"><h2>' + day + '</h2><div class="timetable-day-entries">' + dayEntries.map((entry) => '<article class="timetable-class"><div><time>' + entry.startTime + " - " + entry.endTime + '</time><h3>' + esc(entry.courseName) + '</h3><p>' + esc([entry.courseCode, entry.room].filter(Boolean).join(" · ") || "No room specified") + '</p>' + (entry.lecturer ? '<small>Lecturer: ' + esc(entry.lecturer) + '</small>' : "") + '</div><div class="card-actions"><button class="text-button" data-edit-class="' + entry.id + '">Edit</button><button class="text-button danger" data-delete-class="' + entry.id + '">Delete</button></div></article>').join("") + '</div></section>';
-    }).join("") : '<div class="panel timetable-empty"><h2>No classes added yet.</h2><p>Add your weekly classes to build your timetable.</p><button class="button" type="button" data-open-modal="timetable-modal">Add Class</button></div>';
+    const entries = timetableStore
+      .slice()
+      .sort(
+        (a, b) =>
+          daysOfWeek.indexOf(a.day) - daysOfWeek.indexOf(b.day) ||
+          a.startTime.localeCompare(b.startTime),
+      );
+    list.innerHTML = entries.length
+      ? daysOfWeek
+          .map((day) => {
+            const dayEntries = entries.filter((entry) => entry.day === day);
+            if (!dayEntries.length) return "";
+            return (
+              '<section class="timetable-day"><h2>' +
+              day +
+              '</h2><div class="timetable-day-entries">' +
+              dayEntries
+                .map(
+                  (entry) =>
+                    '<article class="timetable-class"><div><time>' +
+                    entry.startTime +
+                    " - " +
+                    entry.endTime +
+                    "</time><h3>" +
+                    esc(entry.courseName) +
+                    "</h3><p>" +
+                    esc(
+                      [entry.courseCode, entry.room]
+                        .filter(Boolean)
+                        .join(" · ") || "No room specified",
+                    ) +
+                    "</p>" +
+                    (entry.lecturer
+                      ? "<small>Lecturer: " + esc(entry.lecturer) + "</small>"
+                      : "") +
+                    '</div><div class="card-actions"><button class="text-button" data-edit-class="' +
+                    entry.id +
+                    '">Edit</button><button class="text-button danger" data-delete-class="' +
+                    entry.id +
+                    '">Delete</button></div></article>',
+                )
+                .join("") +
+              "</div></section>"
+            );
+          })
+          .join("")
+      : '<div class="panel timetable-empty"><h2>No classes added yet.</h2><p>Add your weekly classes to build your timetable.</p><button class="button" type="button" data-open-modal="timetable-modal">Add Class</button></div>';
     modal();
   }
   function editEntry(entry) {
     document.getElementById("timetable-modal-title").textContent = "Edit class";
     document.getElementById("timetable-id").value = entry.id;
-    ["courseName", "courseCode", "day", "startTime", "endTime", "room", "lecturer", "notes"].forEach((key, index) => document.getElementById("timetable-" + fields[index]).value = entry[key] || "");
+    [
+      "courseName",
+      "courseCode",
+      "day",
+      "startTime",
+      "endTime",
+      "room",
+      "lecturer",
+      "notes",
+    ].forEach(
+      (key, index) =>
+        (document.getElementById("timetable-" + fields[index]).value =
+          entry[key] || ""),
+    );
     document.getElementById("timetable-error").textContent = "";
     document.getElementById("timetable-modal").hidden = false;
   }
   list.onclick = (event) => {
     const editId = event.target.dataset.editClass;
     const deleteId = event.target.dataset.deleteClass;
-    if (editId) editEntry(timetableStore.find((entry) => String(entry.id) === String(editId)));
+    if (editId)
+      editEntry(
+        timetableStore.find((entry) => String(entry.id) === String(editId)),
+      );
     if (deleteId && confirm("Delete this class from your timetable?")) {
       timetableRequest("/" + encodeURIComponent(deleteId), { method: "DELETE" })
         .then(() => {
-          timetableStore = timetableStore.filter((entry) => String(entry.id) !== String(deleteId));
+          timetableStore = timetableStore.filter(
+            (entry) => String(entry.id) !== String(deleteId),
+          );
           saveCache();
           render();
         })
-        .catch((error) => showError(error.message === "Failed to fetch" ? "Unable to connect to CampusPlan server." : error.message));
+        .catch((error) =>
+          showError(
+            error.message === "Failed to fetch"
+              ? "Unable to connect to CampusPlan server."
+              : error.message,
+          ),
+        );
     }
   };
   form.onsubmit = async (event) => {
@@ -2864,23 +3873,49 @@ function setupTimetable() {
     const startTime = document.getElementById("timetable-start").value;
     const endTime = document.getElementById("timetable-end").value;
     const error = document.getElementById("timetable-error");
-    if (!document.getElementById("timetable-course").value.trim()) { error.textContent = "Course or module name is required."; return; }
-    if (!startTime || !endTime || endTime <= startTime) { error.textContent = "End time must be after the start time."; return; }
+    if (!document.getElementById("timetable-course").value.trim()) {
+      error.textContent = "Course or module name is required.";
+      return;
+    }
+    if (!startTime || !endTime || endTime <= startTime) {
+      error.textContent = "End time must be after the start time.";
+      return;
+    }
     const id = document.getElementById("timetable-id").value;
-    const item = { courseName: document.getElementById("timetable-course").value.trim(), courseCode: document.getElementById("timetable-code").value.trim(), day: document.getElementById("timetable-day").value, startTime, endTime, room: document.getElementById("timetable-room").value.trim(), lecturer: document.getElementById("timetable-lecturer").value.trim(), notes: document.getElementById("timetable-notes").value.trim() };
+    const item = {
+      courseName: document.getElementById("timetable-course").value.trim(),
+      courseCode: document.getElementById("timetable-code").value.trim(),
+      day: document.getElementById("timetable-day").value,
+      startTime,
+      endTime,
+      room: document.getElementById("timetable-room").value.trim(),
+      lecturer: document.getElementById("timetable-lecturer").value.trim(),
+      notes: document.getElementById("timetable-notes").value.trim(),
+    };
     const submitButton = form.querySelector('button[type="submit"]');
     submitButton.disabled = true;
     try {
-      const result = await timetableRequest(id ? "/" + encodeURIComponent(id) : "", { method: id ? "PUT" : "POST", body: JSON.stringify(item) });
-      timetableStore = id ? timetableStore.map((entry) => String(entry.id) === String(id) ? result.timetableEntry : entry) : [...timetableStore, result.timetableEntry];
+      const result = await timetableRequest(
+        id ? "/" + encodeURIComponent(id) : "",
+        { method: id ? "PUT" : "POST", body: JSON.stringify(item) },
+      );
+      timetableStore = id
+        ? timetableStore.map((entry) =>
+            String(entry.id) === String(id) ? result.timetableEntry : entry,
+          )
+        : [...timetableStore, result.timetableEntry];
       saveCache();
       form.reset();
       document.getElementById("timetable-id").value = "";
-      document.getElementById("timetable-modal-title").textContent = "Add class";
+      document.getElementById("timetable-modal-title").textContent =
+        "Add class";
       document.getElementById("timetable-modal").hidden = true;
       render();
     } catch (requestError) {
-      error.textContent = requestError.message === "Failed to fetch" ? "Unable to connect to CampusPlan server." : requestError.message;
+      error.textContent =
+        requestError.message === "Failed to fetch"
+          ? "Unable to connect to CampusPlan server."
+          : requestError.message;
     } finally {
       submitButton.disabled = false;
     }

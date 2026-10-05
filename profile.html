@@ -3,7 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-    <script>document.documentElement.dataset.theme = localStorage.getItem("campusplan_theme") || "light";</script>
+    <script>
+      document.documentElement.dataset.theme =
+        localStorage.getItem("campusplan_theme") || "light";
+    </script>
     <title>Profile | CampusPlan</title>
     <link rel="stylesheet" href="css/style.css" />
   </head>
@@ -32,13 +35,34 @@
       <section class="panel profile-panel">
         <form id="profile-form" class="form-grid">
           <div class="profile-photo-field full">
-            <div id="profile-photo" class="profile-photo-preview" aria-live="polite"></div>
+            <div
+              id="profile-photo"
+              class="profile-photo-preview"
+              aria-live="polite"
+            ></div>
             <div>
               <h2>Profile photo</h2>
-              <p class="empty-state">Use a JPG, PNG, GIF, or WebP image under 2 MB.</p>
-              <label class="button secondary photo-button" for="profile-photo-input">Change photo</label>
-              <input id="profile-photo-input" type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden />
-              <button id="remove-profile-photo" class="text-button danger" type="button">Remove photo</button>
+              <p class="empty-state">
+                Use a JPG, PNG, GIF, or WebP image under 2 MB.
+              </p>
+              <label
+                class="button secondary photo-button"
+                for="profile-photo-input"
+                >Change photo</label
+              >
+              <input
+                id="profile-photo-input"
+                type="file"
+                accept="image/png,image/jpeg,image/gif,image/webp"
+                hidden
+              />
+              <button
+                id="remove-profile-photo"
+                class="text-button danger"
+                type="button"
+              >
+                Remove photo
+              </button>
             </div>
           </div>
           <label>Full Name<input id="profile-name" required /></label

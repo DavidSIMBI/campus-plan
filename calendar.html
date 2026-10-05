@@ -1,16 +1,23 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script>document.documentElement.dataset.theme = localStorage.getItem("campusplan_theme") || "light";</script>
+    <script>
+      document.documentElement.dataset.theme =
+        localStorage.getItem("campusplan_theme") || "light";
+    </script>
     <title>Calendar | CampusPlan</title>
     <link rel="stylesheet" href="css/style.css" />
   </head>
   <body data-page="calendar">
     <header class="site-header">
       <a class="brand" href="index.html">Campus<span>Plan</span></a>
-      <button class="menu-toggle" aria-label="Open navigation" aria-expanded="false">
+      <button
+        class="menu-toggle"
+        aria-label="Open navigation"
+        aria-expanded="false"
+      >
         &#9776;
       </button>
       <nav class="main-nav" aria-label="Main navigation">
@@ -40,17 +47,37 @@
 
       <section class="panel">
         <div class="calendar-toolbar">
-          <button class="button secondary" type="button" id="calendar-prev" aria-label="Previous month">
+          <button
+            class="button secondary"
+            type="button"
+            id="calendar-prev"
+            aria-label="Previous month"
+          >
             ← Previous
           </button>
-          <button class="button" type="button" id="calendar-today">Today</button>
-          <button class="button secondary" type="button" id="calendar-next" aria-label="Next month">
+          <button class="button" type="button" id="calendar-today">
+            Today
+          </button>
+          <button
+            class="button secondary"
+            type="button"
+            id="calendar-next"
+            aria-label="Next month"
+          >
             Next →
           </button>
-          <button class="button" type="button" data-open-modal="calendar-event-form-modal">Add Event</button>
+          <button
+            class="button"
+            type="button"
+            data-open-modal="calendar-event-form-modal"
+          >
+            Add Event
+          </button>
         </div>
 
-        <div class="calendar-month" id="calendar-month-label">September 2026</div>
+        <div class="calendar-month" id="calendar-month-label">
+          September 2026
+        </div>
         <p class="form-notice" id="calendar-load-error" role="status"></p>
         <div id="calendar-current-month" hidden></div>
 
@@ -67,27 +94,66 @@
         <div class="calendar-grid" id="calendar-grid" aria-live="polite"></div>
 
         <div class="calendar-legends" aria-label="Calendar legends">
-          <span class="calendar-legend"><i style="background:#e9efff"></i> Assignment</span>
-          <span class="calendar-legend"><i style="background:#e1f6ee"></i> Test</span>
-          <span class="calendar-legend"><i style="background:#f0ebff"></i> Presentation</span>
-          <span class="calendar-legend"><i style="background:#fff4da"></i> Reminder</span>
-          <span class="calendar-legend"><i style="background:#e8f1e8"></i> Personal</span>
+          <span class="calendar-legend"
+            ><i style="background: #e9efff"></i> Assignment</span
+          >
+          <span class="calendar-legend"
+            ><i style="background: #e1f6ee"></i> Test</span
+          >
+          <span class="calendar-legend"
+            ><i style="background: #f0ebff"></i> Presentation</span
+          >
+          <span class="calendar-legend"
+            ><i style="background: #fff4da"></i> Reminder</span
+          >
+          <span class="calendar-legend"
+            ><i style="background: #e8f1e8"></i> Personal</span
+          >
         </div>
       </section>
     </main>
 
     <div class="modal" id="calendar-event-modal" hidden>
       <div class="modal-backdrop" data-close-modal></div>
-      <section class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="calendar-event-title">
-        <button class="modal-close" aria-label="Close event details" data-close-modal>&times;</button>
+      <section
+        class="modal-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="calendar-event-title"
+      >
+        <button
+          class="modal-close"
+          aria-label="Close event details"
+          data-close-modal
+        >
+          &times;
+        </button>
         <h2 id="calendar-event-title">Academic event</h2>
         <dl class="presentation-details">
-          <div><dt>Type</dt><dd id="calendar-event-type">Assignment</dd></div>
-          <div><dt>Course</dt><dd id="calendar-event-course">Database Design</dd></div>
-          <div><dt>Date</dt><dd id="calendar-event-date">September 20</dd></div>
-          <div><dt>Time</dt><dd id="calendar-event-time">No time specified</dd></div>
-          <div><dt>Status</dt><dd id="calendar-event-status">In Progress</dd></div>
-          <div><dt>Priority</dt><dd id="calendar-event-priority">High</dd></div>
+          <div>
+            <dt>Type</dt>
+            <dd id="calendar-event-type">Assignment</dd>
+          </div>
+          <div>
+            <dt>Course</dt>
+            <dd id="calendar-event-course">Database Design</dd>
+          </div>
+          <div>
+            <dt>Date</dt>
+            <dd id="calendar-event-date">September 20</dd>
+          </div>
+          <div>
+            <dt>Time</dt>
+            <dd id="calendar-event-time">No time specified</dd>
+          </div>
+          <div>
+            <dt>Status</dt>
+            <dd id="calendar-event-status">In Progress</dd>
+          </div>
+          <div>
+            <dt>Priority</dt>
+            <dd id="calendar-event-priority">High</dd>
+          </div>
         </dl>
         <p id="calendar-event-description" class="empty-state"></p>
         <div class="form-actions" id="calendar-event-actions"></div>
@@ -96,20 +162,65 @@
 
     <div class="modal" id="calendar-event-form-modal" hidden>
       <div class="modal-backdrop" data-close-modal></div>
-      <section class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="calendar-event-form-title">
-        <button class="modal-close" aria-label="Close event form" data-close-modal>&times;</button>
+      <section
+        class="modal-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="calendar-event-form-title"
+      >
+        <button
+          class="modal-close"
+          aria-label="Close event form"
+          data-close-modal
+        >
+          &times;
+        </button>
         <h2 id="calendar-event-form-title">Add personal event</h2>
         <form id="calendar-event-form" class="form-grid">
           <input id="calendar-personal-id" type="hidden" />
-          <label class="full">Title<input id="calendar-personal-title" required /></label>
-          <label>Date<input id="calendar-personal-date" type="date" required /></label>
-          <label>Event type<select id="calendar-personal-type"><option>Personal</option><option>Study</option><option>Meeting</option><option>Other</option></select></label>
-          <label>Start time<input id="calendar-personal-start" type="time" /></label>
-          <label>End time<input id="calendar-personal-end" type="time" /></label>
-          <label>Priority<select id="calendar-personal-priority"><option>High</option><option selected>Medium</option><option>Low</option></select></label>
-          <label class="full">Description<textarea id="calendar-personal-description" rows="3"></textarea></label>
-          <p class="field-error full" id="calendar-personal-error" role="alert"></p>
-          <div class="form-actions full"><button class="button secondary" type="button" data-close-modal>Cancel</button><button class="button" type="submit">Save event</button></div>
+          <label class="full"
+            >Title<input id="calendar-personal-title" required
+          /></label>
+          <label
+            >Date<input id="calendar-personal-date" type="date" required
+          /></label>
+          <label
+            >Event type<select id="calendar-personal-type">
+              <option>Personal</option>
+              <option>Study</option>
+              <option>Meeting</option>
+              <option>Other</option>
+            </select></label
+          >
+          <label
+            >Start time<input id="calendar-personal-start" type="time"
+          /></label>
+          <label
+            >End time<input id="calendar-personal-end" type="time"
+          /></label>
+          <label
+            >Priority<select id="calendar-personal-priority">
+              <option>High</option>
+              <option selected>Medium</option>
+              <option>Low</option>
+            </select></label
+          >
+          <label class="full"
+            >Description<textarea
+              id="calendar-personal-description"
+              rows="3"
+            ></textarea>
+          </label>
+          <p
+            class="field-error full"
+            id="calendar-personal-error"
+            role="alert"
+          ></p>
+          <div class="form-actions full">
+            <button class="button secondary" type="button" data-close-modal>
+              Cancel</button
+            ><button class="button" type="submit">Save event</button>
+          </div>
         </form>
       </section>
     </div>

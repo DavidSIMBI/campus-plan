@@ -19,3 +19,6 @@ CREATE TABLE IF NOT EXISTS calendar_events (
     ON DELETE CASCADE
     ON UPDATE CASCADE
 );
+
+
+

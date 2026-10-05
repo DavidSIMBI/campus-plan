@@ -3,7 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-    <script>document.documentElement.dataset.theme = localStorage.getItem("campusplan_theme") || "light";</script>
+    <script>
+      document.documentElement.dataset.theme =
+        localStorage.getItem("campusplan_theme") || "light";
+    </script>
     <title>Login | CampusPlan</title>
     <link rel="stylesheet" href="css/style.css" />
   </head>
@@ -11,24 +14,35 @@
     <main class="login-shell">
       <section class="login-visual" aria-label="CampusPlan academic planner">
         <div class="login-visual-top">
-          <a class="brand login-brand" href="login.html">Campus<span>Plan</span></a>
+          <a class="brand login-brand" href="login.html"
+            >Campus<span>Plan</span></a
+          >
           <span class="visual-label">Student workspace</span>
         </div>
         <div class="visual-copy">
           <p class="eyebrow">PLAN WITH PURPOSE</p>
           <h1>Your academic life, in one clear place.</h1>
-          <p>Keep up with deadlines, classes, study groups, and the people you learn with.</p>
+          <p>
+            Keep up with deadlines, classes, study groups, and the people you
+            learn with.
+          </p>
         </div>
         <div class="planner-illustration" aria-hidden="true">
           <div class="planner-window">
-            <div class="planner-window-bar"><i></i><i></i><i></i><span>CampusPlan</span></div>
+            <div class="planner-window-bar">
+              <i></i><i></i><i></i><span>CampusPlan</span>
+            </div>
             <div class="planner-window-body">
               <div class="planner-sidebar"><b></b><b></b><b></b><b></b></div>
               <div class="planner-content">
                 <span class="planner-line wide"></span>
                 <span class="planner-line"></span>
-                <div class="planner-calendar"><i></i><i></i><i></i><i></i><i></i><i></i></div>
-                <div class="planner-tasks"><span></span><span></span><span></span></div>
+                <div class="planner-calendar">
+                  <i></i><i></i><i></i><i></i><i></i><i></i>
+                </div>
+                <div class="planner-tasks">
+                  <span></span><span></span><span></span>
+                </div>
               </div>
             </div>
           </div>
@@ -48,16 +62,29 @@
         <form id="login-form" class="form-grid">
           <label class="full">
             Email or Student ID
-            <input id="login-identity" autocomplete="username" placeholder="you@example.com or CP-1024" required />
+            <input
+              id="login-identity"
+              autocomplete="username"
+              placeholder="you@example.com or CP-1024"
+              required
+            />
           </label>
           <label class="full">
             Password
-            <input id="login-password" type="password" autocomplete="current-password" placeholder="Enter your password" required />
+            <input
+              id="login-password"
+              type="password"
+              autocomplete="current-password"
+              placeholder="Enter your password"
+              required
+            />
           </label>
           <p class="field-error full" id="login-error"></p>
           <button class="button full" type="submit">Login</button>
         </form>
-        <button class="text-button forgot-password" type="button">Forgot password?</button>
+        <button class="text-button forgot-password" type="button">
+          Forgot password?
+        </button>
         <p class="auth-switch">
           Don't have an account? <a href="register.html">Create one</a>
         </p>

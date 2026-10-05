@@ -3,7 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script>document.documentElement.dataset.theme = localStorage.getItem("campusplan_theme") || "light";</script>
+    <script>
+      document.documentElement.dataset.theme =
+        localStorage.getItem("campusplan_theme") || "light";
+    </script>
     <title>Presentations | CampusPlan</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -67,7 +70,10 @@
             >Presentation title<input id="presentation-title" required /></label
           ><label>Course<input id="presentation-course" required /></label
           ><label class="full"
-            >Description<textarea id="presentation-description" rows="3"></textarea></label
+            >Description<textarea
+              id="presentation-description"
+              rows="3"
+            ></textarea></label
           ><label
             >Date<input id="presentation-date" type="date" required /></label
           ><label

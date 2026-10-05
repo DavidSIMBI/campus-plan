@@ -3,7 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script>document.documentElement.dataset.theme = localStorage.getItem("campusplan_theme") || "light";</script>
+    <script>
+      document.documentElement.dataset.theme =
+        localStorage.getItem("campusplan_theme") || "light";
+    </script>
     <title>Timetable | CampusPlan</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -47,25 +50,62 @@
           Add Class
         </button>
       </section>
-      <section id="timetable-list" class="timetable-list" aria-live="polite"></section>
+      <section
+        id="timetable-list"
+        class="timetable-list"
+        aria-live="polite"
+      ></section>
     </main>
     <div class="modal" id="timetable-modal" hidden>
       <div class="modal-backdrop" data-close-modal></div>
-      <section class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="timetable-modal-title">
-        <button class="modal-close" aria-label="Close class form" data-close-modal>&times;</button>
+      <section
+        class="modal-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="timetable-modal-title"
+      >
+        <button
+          class="modal-close"
+          aria-label="Close class form"
+          data-close-modal
+        >
+          &times;
+        </button>
         <h2 id="timetable-modal-title">Add class</h2>
         <form id="timetable-form" class="form-grid">
           <input id="timetable-id" type="hidden" />
-          <label class="full">Course/Module name<input id="timetable-course" required /></label>
+          <label class="full"
+            >Course/Module name<input id="timetable-course" required
+          /></label>
           <label>Course code<input id="timetable-code" /></label>
-          <label>Day<select id="timetable-day" required><option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option><option>Sunday</option></select></label>
-          <label>Start time<input id="timetable-start" type="time" required /></label>
-          <label>End time<input id="timetable-end" type="time" required /></label>
+          <label
+            >Day<select id="timetable-day" required>
+              <option>Monday</option>
+              <option>Tuesday</option>
+              <option>Wednesday</option>
+              <option>Thursday</option>
+              <option>Friday</option>
+              <option>Saturday</option>
+              <option>Sunday</option>
+            </select></label
+          >
+          <label
+            >Start time<input id="timetable-start" type="time" required
+          /></label>
+          <label
+            >End time<input id="timetable-end" type="time" required
+          /></label>
           <label>Room<input id="timetable-room" /></label>
           <label>Lecturer<input id="timetable-lecturer" /></label>
-          <label class="full">Notes<textarea id="timetable-notes" rows="3"></textarea></label>
+          <label class="full"
+            >Notes<textarea id="timetable-notes" rows="3"></textarea>
+          </label>
           <p class="field-error full" id="timetable-error" role="alert"></p>
-          <div class="form-actions full"><button class="button secondary" type="button" data-close-modal>Cancel</button><button class="button" type="submit">Save class</button></div>
+          <div class="form-actions full">
+            <button class="button secondary" type="button" data-close-modal>
+              Cancel</button
+            ><button class="button" type="submit">Save class</button>
+          </div>
         </form>
       </section>
     </div>

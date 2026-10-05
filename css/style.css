@@ -49,7 +49,10 @@ body,
 .notification-panel,
 .auth-card,
 .timetable {
-  transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    border-color 160ms ease;
 }
 button,
 input,
@@ -137,7 +140,10 @@ textarea:focus-visible {
   border-radius: 999px;
   background: var(--surface-alt);
   color: var(--ink);
-  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
 }
 .theme-toggle:hover {
   border-color: var(--blue);
