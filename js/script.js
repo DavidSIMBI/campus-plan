@@ -111,6 +111,36 @@ async function authRequest(path, options = {}) {
   }
   return body;
 }
+function normalizeAuthenticatedUser(user, existingUser) {
+  const merged = { ...(existingUser || {}), ...(user || {}) };
+  merged.name = merged.fullName || merged.name || "";
+  merged.fullName = merged.fullName || merged.name;
+  merged.year = merged.yearOfStudy || merged.year || "";
+  merged.yearOfStudy = merged.yearOfStudy || merged.year;
+  return merged;
+}
+async function profileRequest(options = {}) {
+  const token = localStorage.getItem(AUTH_TOKEN_KEY);
+  const response = await fetch(AUTH_API_BASE + "/me", {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: "Bearer " + token } : {}),
+      ...(options.headers || {}),
+    },
+  });
+  const body = await response.json().catch(() => ({}));
+  if (response.status === 401) {
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+    localStorage.removeItem(SESSION_KEY);
+    location.replace("login.html?notice=session-expired");
+    throw new Error("Your session has expired. Please log in again.");
+  }
+  if (!response.ok) {
+    throw new Error(body.message || "Unable to load the student profile.");
+  }
+  return body;
+}
 async function assignmentRequest(path = "", options = {}) {
   const token = localStorage.getItem(AUTH_TOKEN_KEY);
   const response = await fetch(ASSIGNMENTS_API_BASE + path, {
@@ -427,8 +457,12 @@ function profileAvatarMarkup(profile, extraClass) {
       ' avatar-photo" src="' +
       esc(profile.photo) +
       '" alt="' +
-      esc(profile.name || profile.fullName || "Student") +
-      ' profile photo">'
+      esc(
+      (profile.name || profile.fullName
+        ? (profile.name || profile.fullName) + " "
+        : "") + t("profile_photo"),
+      ) +
+      '">'
     );
   }
   return (
@@ -3601,9 +3635,13 @@ function setupGroups() {
   };
 }
 function setupAuth() {
-  const login = document.getElementById("login-form"),
-    register = document.getElementById("register-form"),
-    user = currentUser();
+  const login = document.getElementById("login-form");
+  const register = document.getElementById("register-form");
+  let user = currentUser();
+  if (user) {
+    user = normalizeAuthenticatedUser(user);
+    localStorage.setItem(SESSION_KEY, JSON.stringify(user));
+  }
 
   if (login) {
     const noticeKey = new URLSearchParams(location.search).get("notice")
@@ -3630,8 +3668,9 @@ function setupAuth() {
           method: "POST",
           body: JSON.stringify({ identity: id, password: pass }),
         });
+        const authenticatedUser = normalizeAuthenticatedUser(result.user);
         localStorage.setItem(AUTH_TOKEN_KEY, result.token);
-        localStorage.setItem(SESSION_KEY, JSON.stringify(result.user));
+        localStorage.setItem(SESSION_KEY, JSON.stringify(authenticatedUser));
         location.href = "index.html";
       } catch (error) {
         if (error instanceof TypeError && found) {
@@ -3777,88 +3816,246 @@ function setupAuth() {
     if (logout) logout.textContent = t("logout");
   });
 
-  if (document.body.dataset.page === "profile") {
-    const profilePhoto = document.getElementById("profile-photo");
-    const photoInput = document.getElementById("profile-photo-input");
-    const removePhoto = document.getElementById("remove-profile-photo");
-    const setPhotoPreview = (photo) => {
-      profilePhoto.innerHTML = avatarMarkup(user.studentId, "profile-avatar");
-      if (photo) profilePhoto.dataset.hasPhoto = "true";
-      else delete profilePhoto.dataset.hasPhoto;
-    };
-    setPhotoPreview(user.photo);
-    if (photoInput) {
-      photoInput.onchange = () => {
-        const file = photoInput.files[0];
-        if (!file) return;
-        if (!file.type.startsWith("image/") || file.size > 2 * 1024 * 1024) {
-          setLocalizedText(
-            document.getElementById("profile-notice"),
-            "invalid_photo",
-          );
-          photoInput.value = "";
-          return;
-        }
-        const reader = new FileReader();
-        reader.onload = () => {
-          user.photo = reader.result;
-          localStorage.setItem(SESSION_KEY, JSON.stringify(user));
-          const users = JSON.parse(localStorage.getItem(USER_KEY) || "[]").map(
-            (savedUser) =>
-              savedUser.studentId === user.studentId ? user : savedUser,
-          );
-          localStorage.setItem(USER_KEY, JSON.stringify(users));
-          setPhotoPreview(user.photo);
-          setLocalizedText(
-            document.getElementById("profile-notice"),
-            "photo_updated",
-          );
-        };
-        reader.readAsDataURL(file);
-      };
-    }
-    if (removePhoto) {
-      removePhoto.onclick = () => {
-        delete user.photo;
-        localStorage.setItem(SESSION_KEY, JSON.stringify(user));
-        const users = JSON.parse(localStorage.getItem(USER_KEY) || "[]").map(
-          (savedUser) =>
-            savedUser.studentId === user.studentId ? user : savedUser,
-        );
-        localStorage.setItem(USER_KEY, JSON.stringify(users));
-        setPhotoPreview();
-        if (photoInput) photoInput.value = "";
-        setLocalizedText(
-          document.getElementById("profile-notice"),
-          "photo_removed",
-        );
-      };
-    }
-    ["name", "email", "institution", "program", "year"].forEach(
-      (k) => (document.getElementById("profile-" + k).value = user[k]),
+  if (document.body.dataset.page === "profile" && user) setupProfile(user);
+}
+
+function setupProfile(initialUser) {
+  const profilePhoto = document.getElementById("profile-photo");
+  const photoInput = document.getElementById("profile-photo-input");
+  const removePhoto = document.getElementById("remove-profile-photo");
+  const profileForm = document.getElementById("profile-form");
+  const editProfile = document.getElementById("edit-profile");
+  const cancelEdit = document.getElementById("cancel-profile-edit");
+  const profileNotice = document.getElementById("profile-notice");
+  const editNotice = document.getElementById("profile-edit-notice");
+  let profileUser = normalizeAuthenticatedUser(initialUser);
+
+  function cacheProfile(user) {
+    localStorage.setItem(SESSION_KEY, JSON.stringify(user));
+    const users = JSON.parse(localStorage.getItem(USER_KEY) || "[]");
+    const existingIndex = users.findIndex(
+      (savedUser) => savedUser.studentId === user.studentId,
     );
-    document.getElementById("profile-id").value = user.studentId;
-    document.getElementById("profile-form").onsubmit = (e) => {
-      e.preventDefault();
-      let updated = {
-          ...user,
-          name: document.getElementById("profile-name").value,
-          email: document.getElementById("profile-email").value,
-          institution: document.getElementById("profile-institution").value,
-          program: document.getElementById("profile-program").value,
-          year: document.getElementById("profile-year").value,
-        },
-        users = JSON.parse(localStorage.getItem(USER_KEY) || "[]").map((x) =>
-          x.studentId === user.studentId ? updated : x,
-        );
-      localStorage.setItem(USER_KEY, JSON.stringify(users));
-      localStorage.setItem(SESSION_KEY, JSON.stringify(updated));
-      setLocalizedText(
-        document.getElementById("profile-notice"),
-        "profile_updated",
-      );
+    if (existingIndex === -1) users.push(user);
+    else users[existingIndex] = { ...users[existingIndex], ...user };
+    localStorage.setItem(USER_KEY, JSON.stringify(users));
+  }
+
+  function fillProfileForm() {
+    document.getElementById("profile-name").value = profileUser.name || "";
+    document.getElementById("profile-id").value =
+      profileUser.studentId || "";
+    document.getElementById("profile-email").value = profileUser.email || "";
+    document.getElementById("profile-institution").value =
+      profileUser.institution || "";
+    document.getElementById("profile-program").value =
+      profileUser.program || "";
+    document.getElementById("profile-year").value =
+      profileUser.yearOfStudy || "";
+  }
+
+  function localizedStudyYear() {
+    const yearKeys = {
+      "Year 1": "year_1",
+      "Year 2": "year_2",
+      "Year 3": "year_3",
+      "Year 4": "year_4",
+    };
+    return yearKeys[profileUser.yearOfStudy]
+      ? t(yearKeys[profileUser.yearOfStudy])
+      : profileUser.yearOfStudy || "—";
+  }
+
+  function renderProfile() {
+    const fields = [
+      ["profile-display-name", profileUser.name],
+      ["profile-display-id", profileUser.studentId],
+      ["profile-info-name", profileUser.name],
+      ["profile-info-email", profileUser.email],
+      ["profile-info-institution", profileUser.institution],
+      ["profile-info-program", profileUser.program],
+      ["profile-info-year", localizedStudyYear()],
+    ];
+    fields.forEach(([id, value]) => {
+      const element = document.getElementById(id);
+      if (element) element.textContent = value || "—";
+    });
+    profilePhoto.innerHTML = profileAvatarMarkup(
+      profileUser,
+      "profile-avatar",
+    );
+    const completionFields = [
+      profileUser.name,
+      profileUser.studentId,
+      profileUser.email,
+      profileUser.institution,
+      profileUser.program,
+      profileUser.yearOfStudy,
+    ];
+    const completion = Math.round(
+      (completionFields.filter((value) => String(value || "").trim()).length /
+        completionFields.length) *
+        100,
+    );
+    document.getElementById("profile-completion-value").textContent =
+      completion + "%";
+    const completionBar = document.getElementById("profile-completion-bar");
+    completionBar.setAttribute("aria-valuenow", completion);
+    completionBar.querySelector("span").style.width = completion + "%";
+    fillProfileForm();
+    document.querySelectorAll(".site-header .profile").forEach((button) => {
+      button.innerHTML =
+        avatarMarkup(profileUser.studentId) +
+        '<span class="profile-name">' +
+        esc(profileUser.name || "") +
+        " &#8964;</span>";
+    });
+  }
+
+  function setEditing(isEditing) {
+    profileForm.hidden = !isEditing;
+    editProfile.hidden = isEditing;
+    if (isEditing) {
+      fillProfileForm();
+      editNotice.textContent = "";
+      document.getElementById("profile-name").focus();
+    } else {
+      editProfile.focus();
+    }
+  }
+
+  function showProfileError(target, error) {
+    const key =
+      error.message === "Failed to fetch"
+        ? "connection_error"
+        : t(error.message) === error.message
+          ? "profile_update_error"
+          : error.message;
+    setLocalizedText(target, key);
+  }
+
+  function savePhoto(photo) {
+    const updatedUser = { ...profileUser };
+    if (photo) updatedUser.photo = photo;
+    else delete updatedUser.photo;
+    cacheProfile(updatedUser);
+    profileUser = updatedUser;
+    renderProfile();
+  }
+
+  renderProfile();
+  editProfile.onclick = () => setEditing(true);
+  cancelEdit.onclick = () => {
+    fillProfileForm();
+    editNotice.textContent = "";
+    setEditing(false);
+  };
+
+  if (photoInput) {
+    photoInput.onchange = () => {
+      const file = photoInput.files[0];
+      if (!file) return;
+      if (!file.type.startsWith("image/") || file.size > 2 * 1024 * 1024) {
+        setLocalizedText(profileNotice, "invalid_photo");
+        photoInput.value = "";
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          savePhoto(reader.result);
+          setLocalizedText(profileNotice, "photo_updated");
+        } catch {
+          setLocalizedText(profileNotice, "photo_storage_error");
+        }
+      };
+      reader.onerror = () => {
+        setLocalizedText(profileNotice, "unable_read_photo");
+      };
+      reader.readAsDataURL(file);
     };
   }
+
+  if (removePhoto) {
+    removePhoto.onclick = () => {
+      try {
+        savePhoto("");
+        if (photoInput) photoInput.value = "";
+        setLocalizedText(profileNotice, "photo_removed");
+      } catch {
+        setLocalizedText(profileNotice, "photo_storage_error");
+      }
+    };
+  }
+
+  profileForm.onsubmit = async (event) => {
+    event.preventDefault();
+    const profileData = {
+      fullName: document.getElementById("profile-name").value.trim(),
+      email: document.getElementById("profile-email").value.trim(),
+      institution: document.getElementById("profile-institution").value.trim(),
+      program: document.getElementById("profile-program").value.trim(),
+      yearOfStudy: document.getElementById("profile-year").value,
+    };
+    const saveButton = profileForm.querySelector('button[type="submit"]');
+    saveButton.disabled = true;
+    editNotice.textContent = "";
+    profileNotice.textContent = "";
+    try {
+      let savedUser;
+      if (localStorage.getItem(AUTH_TOKEN_KEY)) {
+        const result = await profileRequest({
+          method: "PUT",
+          body: JSON.stringify(profileData),
+        });
+        savedUser = normalizeAuthenticatedUser(result.user, profileUser);
+      } else {
+        savedUser = normalizeAuthenticatedUser(
+          { ...profileUser, ...profileData },
+          profileUser,
+        );
+      }
+      cacheProfile(savedUser);
+      profileUser = savedUser;
+      renderProfile();
+      setEditing(false);
+      setLocalizedText(
+        profileNotice,
+        localStorage.getItem(AUTH_TOKEN_KEY)
+          ? "profile_updated"
+          : "profile_saved_local",
+      );
+    } catch (error) {
+      showProfileError(editNotice, error);
+    } finally {
+      saveButton.disabled = false;
+    }
+  };
+
+  if (localStorage.getItem(AUTH_TOKEN_KEY)) {
+    profileRequest()
+      .then((result) => {
+        profileUser = normalizeAuthenticatedUser(result.user, profileUser);
+        cacheProfile(profileUser);
+        renderProfile();
+      })
+      .catch((error) => showProfileError(profileNotice, error));
+  }
+
+  document.addEventListener("campusplan-language-change", () => {
+    document.getElementById("profile-info-year").textContent =
+      localizedStudyYear();
+    profilePhoto.innerHTML = profileAvatarMarkup(
+      profileUser,
+      "profile-avatar",
+    );
+    if (profileNotice.dataset.i18n) {
+      profileNotice.textContent = t(profileNotice.dataset.i18n);
+    }
+    if (editNotice.dataset.i18n) {
+      editNotice.textContent = t(editNotice.dataset.i18n);
+    }
+  });
 }
 
 function setupPasswordVisibility() {

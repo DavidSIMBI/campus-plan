@@ -2747,6 +2747,216 @@ textarea:focus-visible {
 .profile-panel {
   max-width: 700px;
 }
+.profile-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+  max-width: 920px;
+}
+.profile-overview,
+.profile-edit-form {
+  padding: 26px;
+  border: 1px solid var(--line);
+  box-shadow: 0 8px 24px rgba(23, 34, 59, 0.06);
+}
+.profile-overview-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+}
+.profile-photo-preview {
+  display: grid;
+  place-items: center;
+  width: 88px;
+  height: 88px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--blue-soft);
+}
+.profile-photo-preview .avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  font-size: 25px;
+}
+.profile-photo-preview .avatar-photo {
+  object-fit: cover;
+}
+.profile-identity .eyebrow {
+  margin: 0 0 4px;
+}
+.profile-identity h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 23px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.profile-student-id {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+.profile-edit-button {
+  white-space: nowrap;
+}
+.profile-photo-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin: 18px 0 0 106px;
+}
+.profile-photo-actions .photo-button {
+  margin: 0;
+}
+.profile-photo-help {
+  flex-basis: 100%;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.profile-completion {
+  max-width: 520px;
+  margin-top: 24px;
+}
+.profile-completion-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.profile-completion-heading strong {
+  color: var(--ink);
+}
+.profile-completion-track {
+  height: 7px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: var(--line);
+}
+.profile-completion-track span {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--blue);
+}
+.profile-information {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 28px;
+  margin: 22px 0 0;
+  border-top: 1px solid var(--line);
+}
+.profile-information > div {
+  min-width: 0;
+  padding: 15px 0;
+  border-bottom: 1px solid var(--line);
+}
+.profile-information dt {
+  margin-bottom: 5px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.profile-information dd {
+  margin: 0;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.profile-notice:empty {
+  display: none;
+}
+.profile-notice {
+  margin: 16px 0 0;
+}
+.profile-form-heading {
+  margin-bottom: 20px;
+}
+.profile-form-heading .eyebrow {
+  margin: 0 0 4px;
+}
+.profile-form-heading h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 20px;
+}
+.profile-form-heading p:last-child {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+.profile-edit-form .form-grid {
+  gap: 16px;
+}
+.profile-edit-form label {
+  min-width: 0;
+}
+.profile-edit-form label small {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.profile-edit-form input[readonly] {
+  background: var(--surface-alt);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+.profile-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+.profile-overview :focus-visible,
+.profile-edit-form :focus-visible {
+  outline: 3px solid #91aaff;
+  outline-offset: 3px;
+}
+@media (max-width: 650px) {
+  .profile-overview,
+  .profile-edit-form {
+    padding: 19px;
+  }
+  .profile-overview-header {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 14px;
+  }
+  .profile-edit-button {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+  .profile-photo-preview {
+    width: 72px;
+    height: 72px;
+  }
+  .profile-identity h2 {
+    font-size: 20px;
+  }
+  .profile-photo-actions {
+    margin-left: 0;
+  }
+  .profile-information {
+    grid-template-columns: minmax(0, 1fr);
+    margin-top: 17px;
+  }
+  .profile-form-actions {
+    flex-direction: column;
+  }
+  .profile-form-actions .button {
+    width: 100%;
+  }
+}
 
 /* Dark theme keeps the existing CampusPlan surfaces, with readable contrast. */
 :root[data-theme="dark"] .site-header,

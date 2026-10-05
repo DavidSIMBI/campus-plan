@@ -3,6 +3,13 @@ const jwt = require("jsonwebtoken");
 const pool = require("../config/database");
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const profileFieldLimits = {
+  fullName: 120,
+  email: 190,
+  institution: 160,
+  program: 120,
+};
+const allowedStudyYears = new Set(["Year 1", "Year 2", "Year 3", "Year 4"]);
 
 function safeUser(row) {
   return {
@@ -129,4 +136,98 @@ async function me(req, res) {
   }
 }
 
-module.exports = { register, login, me };
+async function updateMe(req, res) {
+  const body = req.body && typeof req.body === "object" ? req.body : {};
+  const data = {
+    fullName: body.fullName,
+    email: body.email,
+    institution: body.institution,
+    program: body.program,
+    yearOfStudy: body.yearOfStudy,
+  };
+
+  for (const field of Object.keys(profileFieldLimits)) {
+    if (typeof data[field] !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "Please complete all required profile fields.",
+      });
+    }
+    data[field] = data[field].trim();
+    if (!data[field] || data[field].length > profileFieldLimits[field]) {
+      return res.status(400).json({
+        success: false,
+        message: "Profile information is invalid or too long.",
+      });
+    }
+  }
+  data.email = data.email.toLowerCase();
+  if (!emailPattern.test(data.email)) {
+    return res.status(400).json({
+      success: false,
+      message: "Please enter a valid email address.",
+    });
+  }
+  if (
+    typeof data.yearOfStudy !== "string" ||
+    !allowedStudyYears.has(data.yearOfStudy.trim())
+  ) {
+    return res.status(400).json({
+      success: false,
+      message: "Please select a valid year of study.",
+    });
+  }
+  data.yearOfStudy = data.yearOfStudy.trim();
+
+  try {
+    const [existing] = await pool.execute(
+      "SELECT id FROM users WHERE email = ? AND id <> ? LIMIT 1",
+      [data.email, req.user.id],
+    );
+    if (existing.length) {
+      return res.status(409).json({
+        success: false,
+        message: "Email already exists.",
+      });
+    }
+
+    await pool.execute(
+      `UPDATE users
+       SET full_name = ?, email = ?, institution = ?, program = ?, year_of_study = ?
+       WHERE id = ?`,
+      [
+        data.fullName,
+        data.email,
+        data.institution,
+        data.program,
+        data.yearOfStudy,
+        req.user.id,
+      ],
+    );
+    const [rows] = await pool.execute(
+      "SELECT * FROM users WHERE id = ? LIMIT 1",
+      [req.user.id],
+    );
+    if (!rows[0]) {
+      return res.status(404).json({
+        success: false,
+        message: "Student account not found.",
+      });
+    }
+    return res.json({ success: true, user: safeUser(rows[0]) });
+  } catch (error) {
+    if (error.code === "ER_DUP_ENTRY") {
+      return res.status(409).json({
+        success: false,
+        message: "Email already exists.",
+      });
+    }
+    console.error("Profile update error:", error.message);
+    return res.status(500).json({
+      success: false,
+      message: "Unable to update the student profile right now.",
+    });
+  }
+}
+
+module.exports = { register, login, me, updateMe };

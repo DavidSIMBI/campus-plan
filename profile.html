@@ -27,62 +27,148 @@
     <main class="page-shell">
       <section class="page-title">
         <div>
-          <p class="eyebrow">YOUR ACCOUNT</p>
+          <p class="eyebrow" data-i18n="your_account">YOUR ACCOUNT</p>
           <h1>Profile</h1>
-          <p>Keep your CampusPlan information current.</p>
+          <p data-i18n="profile_description">Keep your CampusPlan information current.</p>
         </div>
       </section>
-      <section class="panel profile-panel">
-        <form id="profile-form" class="form-grid">
-          <div class="profile-photo-field full">
-            <div
-              id="profile-photo"
-              class="profile-photo-preview"
-              aria-live="polite"
-            ></div>
-            <div>
-              <h2>Profile photo</h2>
-              <p class="empty-state">
-                Use a JPG, PNG, GIF, or WebP image under 2 MB.
+      <section class="profile-layout">
+        <article class="panel profile-overview" aria-labelledby="profile-display-name">
+          <div class="profile-overview-header">
+            <div id="profile-photo" class="profile-photo-preview" aria-live="polite"></div>
+            <div class="profile-identity">
+              <p class="eyebrow" data-i18n="student_profile">STUDENT PROFILE</p>
+              <h2 id="profile-display-name" data-no-translate></h2>
+              <p class="profile-student-id">
+                <span data-i18n="student_id">Student ID</span>
+                <span aria-hidden="true">·</span>
+                <span id="profile-display-id" data-no-translate></span>
               </p>
-              <label
-                class="button secondary photo-button"
-                for="profile-photo-input"
-                >Change photo</label
-              >
-              <input
-                id="profile-photo-input"
-                type="file"
-                accept="image/png,image/jpeg,image/gif,image/webp"
-                hidden
-              />
-              <button
-                id="remove-profile-photo"
-                class="text-button danger"
-                type="button"
-              >
-                Remove photo
-              </button>
+            </div>
+            <button
+              id="edit-profile"
+              class="button secondary profile-edit-button"
+              type="button"
+              data-i18n="edit_profile"
+            >
+              Edit profile
+            </button>
+          </div>
+          <div class="profile-photo-actions">
+            <label class="button secondary photo-button" for="profile-photo-input" data-i18n="change_photo">
+              Change photo
+            </label>
+            <input
+              id="profile-photo-input"
+              type="file"
+              accept="image/png,image/jpeg,image/gif,image/webp"
+              aria-label="Change photo"
+              data-i18n-aria-label="change_photo"
+              hidden
+            />
+            <button
+              id="remove-profile-photo"
+              class="text-button danger"
+              type="button"
+              data-i18n="remove_photo"
+            >
+              Remove photo
+            </button>
+            <span class="profile-photo-help" data-i18n="photo_help">
+              Use a JPG, PNG, GIF, or WebP image under 2 MB.
+            </span>
+          </div>
+          <div class="profile-completion">
+            <div class="profile-completion-heading">
+              <span data-i18n="profile_completion">Profile completion</span>
+              <strong id="profile-completion-value">0%</strong>
+            </div>
+            <div
+              id="profile-completion-bar"
+              class="profile-completion-track"
+              role="progressbar"
+              aria-label="Profile completion"
+              data-i18n-aria-label="profile_completion"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              aria-valuenow="0"
+            >
+              <span></span>
             </div>
           </div>
-          <label>Full Name<input id="profile-name" required /></label
-          ><label>Student ID<input id="profile-id" disabled /></label
-          ><label>Email<input id="profile-email" type="email" required /></label
-          ><label
-            >University/Institution<input
-              id="profile-institution"
-              required /></label
-          ><label>Course/Program<input id="profile-program" required /></label
-          ><label
-            >Year of Study<select id="profile-year">
-              <option value="Year 1">Year 1</option>
-              <option value="Year 2">Year 2</option>
-              <option value="Year 3">Year 3</option>
-              <option value="Year 4">Year 4</option>
-            </select></label
-          >
-          <p class="form-notice full" id="profile-notice"></p>
-          <button class="button full">Save profile</button>
+          <dl class="profile-information">
+            <div>
+              <dt data-i18n="full_name">Full Name</dt>
+              <dd id="profile-info-name" data-no-translate></dd>
+            </div>
+            <div>
+              <dt data-i18n="email">Email</dt>
+              <dd id="profile-info-email" data-no-translate></dd>
+            </div>
+            <div>
+              <dt data-i18n="institution">Institution</dt>
+              <dd id="profile-info-institution" data-no-translate></dd>
+            </div>
+            <div>
+              <dt data-i18n="program">Program</dt>
+              <dd id="profile-info-program" data-no-translate></dd>
+            </div>
+            <div>
+              <dt data-i18n="year_of_study">Year of Study</dt>
+              <dd id="profile-info-year" data-no-translate></dd>
+            </div>
+          </dl>
+          <p class="form-notice profile-notice" id="profile-notice" role="status" aria-live="polite"></p>
+        </article>
+        <form id="profile-form" class="panel profile-edit-form" hidden>
+          <div class="profile-form-heading">
+            <div>
+              <p class="eyebrow" data-i18n="your_account">YOUR ACCOUNT</p>
+              <h2 data-i18n="edit_profile">Edit profile</h2>
+              <p data-i18n="profile_edit_description">
+                Update the information associated with your student account.
+              </p>
+            </div>
+          </div>
+          <div class="form-grid">
+            <label for="profile-name">
+              <span data-i18n="full_name">Full Name</span>
+              <input id="profile-name" maxlength="120" autocomplete="name" required />
+            </label>
+            <label for="profile-id">
+              <span data-i18n="student_id">Student ID</span>
+              <input id="profile-id" readonly aria-describedby="student-id-readonly-note" />
+              <small id="student-id-readonly-note" data-i18n="student_id_readonly">
+                Student ID cannot be changed.
+              </small>
+            </label>
+            <label for="profile-email">
+              <span data-i18n="email">Email</span>
+              <input id="profile-email" type="email" maxlength="190" autocomplete="email" required />
+            </label>
+            <label for="profile-institution">
+              <span data-i18n="institution">Institution</span>
+              <input id="profile-institution" maxlength="160" autocomplete="organization" required />
+            </label>
+            <label for="profile-program">
+              <span data-i18n="program">Program</span>
+              <input id="profile-program" maxlength="120" required />
+            </label>
+            <label for="profile-year">
+              <span data-i18n="year_of_study">Year of Study</span>
+              <select id="profile-year" required>
+                <option value="Year 1" data-i18n="year_1">Year 1</option>
+                <option value="Year 2" data-i18n="year_2">Year 2</option>
+                <option value="Year 3" data-i18n="year_3">Year 3</option>
+                <option value="Year 4" data-i18n="year_4">Year 4</option>
+              </select>
+            </label>
+          </div>
+          <p class="form-notice profile-notice" id="profile-edit-notice" role="alert" aria-live="polite"></p>
+          <div class="profile-form-actions">
+            <button class="button" type="submit" data-i18n="save_changes">Save Changes</button>
+            <button id="cancel-profile-edit" class="button secondary" type="button" data-i18n="cancel">Cancel</button>
+          </div>
         </form>
       </section>
     </main>

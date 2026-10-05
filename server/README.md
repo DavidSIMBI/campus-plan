@@ -114,6 +114,7 @@ http://localhost:5000/api/health
 
 - `POST /api/auth/register`: creates a student account and hashes the password with bcrypt.
 - `POST /api/auth/login`: accepts an email or student ID plus password and returns a JWT.
+- `PUT /api/auth/me`: updates the authenticated student's profile using the user ID in the bearer token; validates the profile fields and omits password data from its response.
 - `GET /api/auth/me`: returns the safe profile for a valid `Authorization: Bearer <token>` request.
 - `GET /api/assignments`: returns assignments owned by the authenticated student.
 - `POST /api/assignments`: creates an assignment for the authenticated student.
