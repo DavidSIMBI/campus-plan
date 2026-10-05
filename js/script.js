@@ -295,13 +295,17 @@ function frontendUser(apiUser) {
     year: apiUser.yearOfStudy,
   };
 }
+const isAuthPage = ["login.html", "register.html"].includes(
+  location.pathname.split("/").pop(),
+);
 if (
-  !["login.html", "register.html"].includes(
-    location.pathname.split("/").pop(),
-  ) &&
-  !currentUser()
-)
+  !isAuthPage &&
+  (!currentUser() || !localStorage.getItem(AUTH_TOKEN_KEY))
+) {
+  localStorage.removeItem(AUTH_TOKEN_KEY);
+  localStorage.removeItem(SESSION_KEY);
   location.replace("login.html?notice=login");
+}
 const K = {
   assignments: "campusplan-assignments",
   tests: "campusplan-tests",
@@ -3637,8 +3641,26 @@ function setupGroups() {
 function setupAuth() {
   const login = document.getElementById("login-form");
   const register = document.getElementById("register-form");
+  const savedUsers = JSON.parse(localStorage.getItem(USER_KEY) || "[]");
+  let removedLocalPasswords = false;
+  savedUsers.forEach((savedUser) => {
+    if (savedUser && typeof savedUser === "object") {
+      ["password", "passwordHash", "password_hash"].forEach((key) => {
+        if (Object.prototype.hasOwnProperty.call(savedUser, key)) {
+          delete savedUser[key];
+          removedLocalPasswords = true;
+        }
+      });
+    }
+  });
+  if (removedLocalPasswords) {
+    localStorage.setItem(USER_KEY, JSON.stringify(savedUsers));
+  }
   let user = currentUser();
   if (user) {
+    delete user.password;
+    delete user.passwordHash;
+    delete user.password_hash;
     user = normalizeAuthenticatedUser(user);
     localStorage.setItem(SESSION_KEY, JSON.stringify(user));
   }
@@ -3652,37 +3674,24 @@ function setupAuth() {
     }
     login.onsubmit = async (e) => {
       e.preventDefault();
-      let id = document
-          .getElementById("login-identity")
-          .value.trim()
-          .toLowerCase(),
-        pass = document.getElementById("login-password").value,
-        found = JSON.parse(localStorage.getItem(USER_KEY) || "[]").find(
-          (x) =>
-            (x.email.toLowerCase() === id ||
-              x.studentId.toLowerCase() === id) &&
-            x.password === pass,
-        );
+      const identity = document
+        .getElementById("login-identity")
+        .value.trim()
+        .toLowerCase();
+      const password = document.getElementById("login-password").value;
       try {
         const result = await authRequest("/login", {
           method: "POST",
-          body: JSON.stringify({ identity: id, password: pass }),
+          body: JSON.stringify({ identity, password }),
         });
         const authenticatedUser = normalizeAuthenticatedUser(result.user);
         localStorage.setItem(AUTH_TOKEN_KEY, result.token);
         localStorage.setItem(SESSION_KEY, JSON.stringify(authenticatedUser));
         location.href = "index.html";
       } catch (error) {
-        if (error instanceof TypeError && found) {
-          localStorage.removeItem(AUTH_TOKEN_KEY);
-          localStorage.setItem(SESSION_KEY, JSON.stringify(found));
-          location.href = "index.html";
-          return;
-        }
-
         setLocalizedText(
           document.getElementById("login-error"),
-          error.message,
+          appErrorMessage(error),
         );
       }
     };
@@ -3730,42 +3739,10 @@ function setupAuth() {
         );
         setTimeout(() => (location.href = "login.html"), 800);
       } catch (error) {
-        if (!(error instanceof TypeError)) {
-          setLocalizedText(
-            document.getElementById("register-success"),
-            error.message,
-          );
-          return;
-        }
-        const users = JSON.parse(localStorage.getItem(USER_KEY) || "[]");
-        if (
-          users.some(
-            (userRecord) =>
-              userRecord.email === registration.email ||
-              userRecord.studentId === registration.studentId,
-          )
-        ) {
-          setLocalizedText(
-            document.getElementById("register-success"),
-            "account_exists",
-          );
-          return;
-        }
-        users.push({
-          name: registration.fullName,
-          studentId: registration.studentId,
-          email: registration.email,
-          institution: registration.institution,
-          program: registration.program,
-          year: registration.yearOfStudy,
-          password: registration.password,
-        });
-        localStorage.setItem(USER_KEY, JSON.stringify(users));
         setLocalizedText(
           document.getElementById("register-success"),
-          "account_created_redirect",
+          appErrorMessage(error),
         );
-        setTimeout(() => (location.href = "login.html"), 800);
       }
     };
   }
@@ -5358,7 +5335,27 @@ document.addEventListener("DOMContentLoaded", () => {
 
   let b = document.querySelector(".menu-toggle"),
     n = document.querySelector(".main-nav");
-  if (b) b.onclick = () => n.classList.toggle("open");
+  if (b && n) {
+    if (!n.id) n.id = "main-navigation";
+    b.setAttribute("aria-controls", n.id);
+    const updateNavigationButton = () => {
+      const expanded = n.classList.contains("open");
+      b.setAttribute("aria-expanded", String(expanded));
+      b.setAttribute(
+        "aria-label",
+        t(expanded ? "close_navigation" : "open_navigation"),
+      );
+    };
+    b.onclick = () => {
+      n.classList.toggle("open");
+      updateNavigationButton();
+    };
+    updateNavigationButton();
+    document.addEventListener(
+      "campusplan-language-change",
+      updateNavigationButton,
+    );
+  }
 
   modal();
   addCalendarNavLink();
