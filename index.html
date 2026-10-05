@@ -39,6 +39,8 @@
         class="notification-button"
         id="notification-toggle"
         aria-label="Open notifications"
+        aria-controls="notification-panel"
+        aria-expanded="false"
       >
         <span class="notification-icon" aria-hidden="true"></span>
         <span class="notification-count" id="notification-count">0</span>
@@ -47,7 +49,13 @@
         <span class="avatar">DN</span><span class="profile-name">David N.</span
         ><span>&#8964;</span>
       </button>
-      <div class="notification-panel" id="notification-panel" hidden>
+      <div
+        class="notification-panel"
+        id="notification-panel"
+        aria-label="Notifications"
+        aria-live="polite"
+        hidden
+      >
         <div class="panel-top">
           <h3>Notifications</h3>
           <button class="text-button" id="mark-all-read" type="button">

@@ -14,6 +14,9 @@ const THEME_KEY = "campusplan_theme";
 let assignmentStore = [];
 let testStore = [];
 let presentationStore = [];
+let assignmentDataLoaded = false;
+let testDataLoaded = false;
+let presentationDataLoaded = false;
 let timetableStore = [];
 let calendarPersonalStore = [];
 let calendarAcademicStore = {
@@ -633,7 +636,9 @@ function setupAssignments() {
       await migrateLegacyAssignments();
       const result = await assignmentRequest();
       assignmentStore = result.assignments || [];
+      assignmentDataLoaded = true;
       renderAssignments();
+      refreshAcademicNotifications();
     } catch (error) {
       showError(
         error.message === "Failed to fetch"
@@ -682,6 +687,8 @@ function setupAssignments() {
       } else {
         assignmentStore.push(result.assignment);
       }
+      assignmentDataLoaded = true;
+      refreshAcademicNotifications();
       e.target.reset();
       document.getElementById("assignment-id").value = "";
       document.getElementById("assignment-modal").hidden = true;
@@ -713,6 +720,7 @@ function setupAssignments() {
         assignmentStore = assignmentStore.filter(
           (assignment) => String(assignment.id) !== String(id),
         );
+        refreshAcademicNotifications();
         renderAssignments();
       } catch (error) {
         showError(
@@ -734,6 +742,7 @@ function setupAssignments() {
         assignmentStore = assignmentStore.map((item) =>
           String(item.id) === String(id) ? result.assignment : item,
         );
+        refreshAcademicNotifications();
         renderAssignments();
       } catch (error) {
         showError(
@@ -884,8 +893,10 @@ function setupTests() {
       await migrateLegacyTests();
       const result = await testRequest();
       testStore = result.tests || [];
+      testDataLoaded = true;
       put("tests", testStore);
       renderTests();
+      refreshAcademicNotifications();
     } catch (error) {
       showError(
         error.message === "Failed to fetch"
@@ -920,7 +931,9 @@ function setupTests() {
             String(test.id) === String(id) ? result.test : test,
           )
         : [...testStore, result.test];
+      testDataLoaded = true;
       put("tests", testStore);
+      refreshAcademicNotifications();
       event.target.reset();
       document.getElementById("test-id").value = "";
       document.getElementById("test-modal-title").textContent =
@@ -946,6 +959,7 @@ function setupTests() {
         await testRequest("/" + encodeURIComponent(id), { method: "DELETE" });
         testStore = testStore.filter((test) => String(test.id) !== String(id));
         put("tests", testStore);
+        refreshAcademicNotifications();
         renderTests();
       } catch (error) {
         showError(
@@ -1078,8 +1092,10 @@ function setupPresentations() {
       await migrateLegacyPresentations();
       const result = await presentationRequest();
       presentationStore = result.presentations || [];
+      presentationDataLoaded = true;
       put("presentations", presentationStore);
       renderPresentations();
+      refreshAcademicNotifications();
     } catch (error) {
       showError(
         error.message === "Failed to fetch"
@@ -1121,7 +1137,9 @@ function setupPresentations() {
               : presentation,
           )
         : [...presentationStore, result.presentation];
+      presentationDataLoaded = true;
       put("presentations", presentationStore);
+      refreshAcademicNotifications();
       e.target.reset();
       document.getElementById("presentation-id").value = "";
       document.getElementById("presentation-modal-title").textContent =
@@ -1153,6 +1171,7 @@ function setupPresentations() {
           (presentation) => String(presentation.id) !== String(id),
         );
         put("presentations", presentationStore);
+        refreshAcademicNotifications();
         renderPresentations();
       } catch (error) {
         showError(
@@ -1199,6 +1218,7 @@ function setupPresentations() {
         String(item.id) === String(id) ? result.presentation : item,
       );
       put("presentations", presentationStore);
+      refreshAcademicNotifications();
       renderPresentations();
     } catch (error) {
       showError(
@@ -1217,6 +1237,8 @@ async function dashboard(refresh = true) {
       const result = await assignmentRequest();
       a = result.assignments || [];
       assignmentStore = a;
+      assignmentDataLoaded = true;
+      refreshAcademicNotifications();
     } catch (error) {
       a = get("assignments");
     }
@@ -3900,7 +3922,7 @@ function getReminderLevel(daysLeft) {
 function getDayDifference(targetDate) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const target = new Date(targetDate + "T12:00:00");
+  const target = new Date(targetDate + "T00:00:00");
   return Math.ceil((target - today) / 86400000);
 }
 
@@ -3981,6 +4003,7 @@ async function loadCalendarData() {
     calendarPersonalStore = personal.events || [];
     calendarDataLoaded = true;
     localStorage.setItem(legacyKey, JSON.stringify(calendarPersonalStore));
+    refreshAcademicNotifications();
     renderCalendarPage();
     renderDashboardReminders();
     renderCalendarPreview();
@@ -4011,9 +4034,25 @@ function saveNotifications(notifications) {
 }
 
 function buildAcademicEventList() {
-  const assignmentEvents = (
-    calendarAcademicStore.assignments || get("assignments")
-  ).map((item) => ({
+  const assignmentItems =
+    calendarAcademicStore.assignments !== null
+      ? calendarAcademicStore.assignments
+      : assignmentDataLoaded
+        ? assignmentStore
+        : get("assignments");
+  const testItems =
+    calendarAcademicStore.tests !== null
+      ? calendarAcademicStore.tests
+      : testDataLoaded
+        ? testStore
+        : get("tests");
+  const presentationItems =
+    calendarAcademicStore.presentations !== null
+      ? calendarAcademicStore.presentations
+      : presentationDataLoaded
+        ? presentationStore
+        : get("presentations");
+  const assignmentEvents = assignmentItems.map((item) => ({
     id: "assignment-" + item.id,
     title: item.title,
     type: "Assignment",
@@ -4026,24 +4065,20 @@ function buildAcademicEventList() {
     eventType: "assignment",
   }));
 
-  const testEvents = (calendarAcademicStore.tests || get("tests")).map(
-    (item) => ({
-      id: "test-" + item.id,
-      title: item.title,
-      type: "Test",
-      course: item.course,
-      date: item.date,
-      time: item.time,
-      description: item.room ? "Test in room " + item.room : "Academic test",
-      status: "Scheduled",
-      priority: "Medium",
-      eventType: "test",
-    }),
-  );
+  const testEvents = testItems.map((item) => ({
+    id: "test-" + item.id,
+    title: item.title,
+    type: "Test",
+    course: item.course,
+    date: item.date,
+    time: item.time,
+    description: item.room ? "Test in room " + item.room : "Academic test",
+    status: "Scheduled",
+    priority: "Medium",
+    eventType: "test",
+  }));
 
-  const presentationEvents = (
-    calendarAcademicStore.presentations || get("presentations")
-  ).map((item) => ({
+  const presentationEvents = presentationItems.map((item) => ({
     id: "presentation-" + item.id,
     title: item.title,
     type: "Presentation",
@@ -4060,7 +4095,8 @@ function buildAcademicEventList() {
     id: "reminder-" + item.id,
     title: item.title,
     type: "Reminder",
-    course: item.course || "Personal Reminder",
+    course:
+      item.course && item.course !== "Personal Reminder" ? item.course : "",
     date: item.date,
     time: item.time || "",
     description: item.description || "Custom reminder",
@@ -4072,7 +4108,7 @@ function buildAcademicEventList() {
     id: "personal-" + item.id,
     title: item.title,
     type: item.type || "Personal",
-    course: "Personal event",
+    course: "",
     date: item.date,
     time: [item.startTime, item.endTime].filter(Boolean).join(" - "),
     description: item.description || "Personal calendar event",
@@ -4092,95 +4128,129 @@ function buildAcademicEventList() {
 }
 
 function generateAcademicNotifications() {
-  const notifications = getNotifications();
-  const seenKeys = new Set(
-    notifications.map((item) => item.eventKey || item.id),
-  );
-  const next = [...notifications];
   const events = buildAcademicEventList();
+  const eventsByKey = new Map(events.map((event) => [event.id, event]));
+  const notificationKeys = new Set();
+  const notifications = getNotifications();
+  const next = [];
 
-  events.forEach((event) => {
-    const daysRemaining = getDayDifference(event.date);
-    if (daysRemaining < 0) return;
+  function getNotificationMessageKey(event, daysRemaining) {
+    if (daysRemaining < 0 || daysRemaining > 7) return "";
+    const time =
+      daysRemaining === 0
+        ? "today"
+        : daysRemaining === 1
+          ? "tomorrow"
+          : "in_days";
+    const eventType =
+      event.type === "Assignment"
+        ? "assignment"
+        : event.type === "Test"
+          ? "test"
+          : event.type === "Presentation"
+            ? "presentation"
+            : "personal";
+    return "notification_" + eventType + "_" + time;
+  }
 
-    let message = "";
-
-    if (event.type === "Assignment") {
-      if (daysRemaining === 0) {
-        message = event.title + " is due today.";
-      } else if (daysRemaining === 1) {
-        message = event.title + " is due tomorrow.";
-      } else if (daysRemaining <= 7) {
-        message = event.title + " is due in " + daysRemaining + " days.";
+  notifications.forEach((notification) => {
+    const event = eventsByKey.get(notification.eventKey);
+    if (!event) {
+      if (
+        !/^(assignment|test|presentation|reminder|personal)-/.test(
+          String(notification.eventKey || ""),
+        )
+      ) {
+        next.push(notification);
       }
+      return;
     }
 
-    if (event.type === "Test") {
-      if (daysRemaining === 0) {
-        message = event.title + " is today.";
-      } else if (daysRemaining === 1) {
-        message = event.title + " is tomorrow.";
-      } else if (daysRemaining <= 7) {
-        message = event.title + " is in " + daysRemaining + " days.";
-      }
-    }
-
-    if (event.type === "Presentation") {
-      if (daysRemaining === 0) {
-        message = event.title + " is scheduled for today.";
-      } else if (daysRemaining === 1) {
-        message = event.title + " is due tomorrow.";
-      } else if (daysRemaining <= 7) {
-        message = event.title + " is coming soon.";
-      }
-    }
-
-    if (event.type === "Reminder") {
-      if (daysRemaining === 0) {
-        message = event.title + " is scheduled for today.";
-      } else if (daysRemaining === 1) {
-        message = event.title + " is due tomorrow.";
-      } else if (daysRemaining <= 7) {
-        message = event.title + " is in " + daysRemaining + " days.";
-      }
-    }
-    if (["Personal", "Study", "Meeting", "Other"].includes(event.type)) {
-      if (daysRemaining === 0) {
-        message = event.title + " is scheduled for today.";
-      } else if (daysRemaining === 1) {
-        message = event.title + " is tomorrow.";
-      } else if (daysRemaining <= 7) {
-        message = event.title + " is in " + daysRemaining + " days.";
-      }
-    }
-
-    if (!message) return;
-
-    const key = event.id;
-    if (seenKeys.has(key)) return;
-
+    const messageKey = getNotificationMessageKey(
+      event,
+      getDayDifference(event.date),
+    );
+    if (!messageKey || notificationKeys.has(event.id)) return;
+    notificationKeys.add(event.id);
     next.push({
-      id: "notification-" + Date.now() + Math.random().toString(16).slice(2),
-      eventKey: key,
+      ...notification,
+      message: undefined,
       title: event.title,
       type: event.type,
-      message: message,
+      course: event.course,
+      date: event.date,
+      time: event.time,
+      messageKey,
+      messageValues: {
+        title: event.title,
+        count: getDayDifference(event.date),
+      },
+    });
+  });
+
+  events.forEach((event) => {
+    if (notificationKeys.has(event.id)) return;
+    const daysRemaining = getDayDifference(event.date);
+    const messageKey = getNotificationMessageKey(event, daysRemaining);
+    if (!messageKey) return;
+    notificationKeys.add(event.id);
+    next.push({
+      id: "notification-" + Date.now() + Math.random().toString(16).slice(2),
+      eventKey: event.id,
+      title: event.title,
+      type: event.type,
+      course: event.course,
+      date: event.date,
+      time: event.time,
+      messageKey,
+      messageValues: { title: event.title, count: daysRemaining },
       read: false,
       createdAt: new Date().toISOString(),
     });
-    seenKeys.add(key);
   });
 
   saveNotifications(next);
 }
 
+function refreshAcademicNotifications() {
+  generateAcademicNotifications();
+  renderNotificationList();
+}
+
 function updateNotificationBadge() {
   const count = document.getElementById("notification-count");
-  if (!count) return;
-
   const unread = getNotifications().filter((item) => !item.read).length;
-  count.textContent = unread;
-  count.style.display = unread ? "grid" : "none";
+  if (count) {
+    count.textContent = unread;
+    count.style.display = unread ? "grid" : "none";
+    count.setAttribute(
+      "aria-label",
+      t(
+        unread === 1
+          ? "unread_notifications_count_one"
+          : "unread_notifications_count_other",
+        { count: unread },
+      ),
+    );
+  }
+  const dashboardCount = document.getElementById(
+    "notification-dashboard-count",
+  );
+  if (dashboardCount) dashboardCount.textContent = unread;
+  const toggle = document.getElementById("notification-toggle");
+  if (toggle) {
+    toggle.setAttribute(
+      "aria-label",
+      unread
+        ? t(
+            unread === 1
+              ? "notification_toggle_unread_one"
+              : "notification_toggle_unread_other",
+            { count: unread },
+          )
+        : t("open_notifications"),
+    );
+  }
 }
 
 function renderNotificationList() {
@@ -4194,20 +4264,42 @@ function renderNotificationList() {
 
   const html = notifications.length
     ? notifications
-        .map(
-          (item) =>
+        .map((item) => {
+          const message = item.messageKey
+            ? t(item.messageKey, item.messageValues)
+            : item.message;
+          const metadata = [
+            t(item.type),
+            item.course ? t("notification_course") + ": " + item.course : "",
+            item.date ? t("notification_date") + ": " + date(item.date) : "",
+            item.time ? t("notification_time") + ": " + item.time : "",
+          ]
+            .filter(Boolean)
+            .map((value) => esc(value))
+            .join(' <span aria-hidden="true">&bull;</span> ');
+          const isAcademicNotification = Boolean(item.messageKey);
+          const accessibleText = isAcademicNotification
+            ? message
+            : item.title + ". " + message;
+          return (
             '<button class="notification-item ' +
             (item.read ? "" : "unread") +
             '" data-notification-id="' +
-            item.id +
-            '" type="button"><strong>' +
-            esc(item.title) +
-            "</strong><span>" +
-            esc(item.message) +
-            "</span><small>" +
-            esc(t(item.type)) +
-            "</small></button>",
-        )
+            esc(item.id) +
+            '" type="button" aria-label="' +
+            esc(
+              (item.read ? "" : t("unread_notification_prefix") + " ") +
+                accessibleText,
+            ) +
+            '"><strong>' +
+            esc(isAcademicNotification ? message : item.title) +
+            "</strong>" +
+            (isAcademicNotification ? "" : "<span>" + esc(message) + "</span>") +
+            '<small class="notification-meta">' +
+            metadata +
+            "</small></button>"
+          );
+        })
         .join("")
     : '<p class="empty-state">' + t("no_notifications") + "</p>";
 
@@ -4238,6 +4330,8 @@ function setupNotifications() {
     button.id = "notification-toggle";
     button.className = "notification-button";
     button.setAttribute("aria-label", t("open_notifications"));
+    button.setAttribute("aria-controls", "notification-panel");
+    button.setAttribute("aria-expanded", "false");
     button.innerHTML =
       '<span class="notification-icon" aria-hidden="true"></span><span class="notification-count" id="notification-count">0</span>';
     header.appendChild(button);
@@ -4248,6 +4342,7 @@ function setupNotifications() {
     newPanel.id = "notification-panel";
     newPanel.className = "notification-panel";
     newPanel.hidden = true;
+    newPanel.setAttribute("aria-label", t("notifications_panel"));
     newPanel.innerHTML =
       '<div class="panel-top"><h3>' +
       t("notifications") +
@@ -4261,9 +4356,24 @@ function setupNotifications() {
   const activePanel = document.getElementById("notification-panel");
 
   if (activeToggle) {
+    activeToggle.setAttribute("aria-controls", "notification-panel");
+    activeToggle.setAttribute("aria-expanded", "false");
+    activeToggle.setAttribute("aria-label", t("open_notifications"));
+  }
+
+  if (activePanel) {
+    activePanel.setAttribute("aria-label", t("notifications_panel"));
+    activePanel.setAttribute("aria-live", "polite");
+  }
+
+  if (activeToggle) {
     activeToggle.onclick = (event) => {
       event.stopPropagation();
-      if (activePanel) activePanel.hidden = !activePanel.hidden;
+      refreshAcademicNotifications();
+      if (activePanel) {
+        activePanel.hidden = !activePanel.hidden;
+        activeToggle.setAttribute("aria-expanded", String(!activePanel.hidden));
+      }
     };
   }
 
@@ -4275,6 +4385,7 @@ function setupNotifications() {
       !activeToggle.contains(event.target)
     ) {
       activePanel.hidden = true;
+      activeToggle.setAttribute("aria-expanded", "false");
     }
   });
 
@@ -4404,13 +4515,13 @@ function setupReminderForm() {
       time: document.getElementById("reminder-time").value,
       description: document.getElementById("reminder-description").value.trim(),
       priority: document.getElementById("reminder-priority").value,
-      course: "Personal Reminder",
+      course: "",
     };
 
     const reminders = getReminders();
     reminders.push(reminder);
     saveReminders(reminders);
-    generateAcademicNotifications();
+    refreshAcademicNotifications();
     renderDashboardReminders();
     renderCalendarPreview();
     if (document.body.dataset.page === "calendar") renderCalendarPage();
@@ -4615,7 +4726,7 @@ function openEventModal(event) {
             );
             modal.hidden = true;
             renderCalendarPage();
-            generateAcademicNotifications();
+            refreshAcademicNotifications();
           })
           .catch((error) => {
             const notice = document.getElementById(
@@ -4714,7 +4825,7 @@ function setupPersonalCalendarEvents() {
       if (index === -1) events.push(result.event);
       else events[index] = result.event;
       savePersonalCalendarEvents(events);
-      generateAcademicNotifications();
+      refreshAcademicNotifications();
       form.reset();
       document.getElementById("calendar-event-form-modal").hidden = true;
       renderCalendarPage();
@@ -5017,7 +5128,7 @@ function setupCalendarPage() {
 }
 
 function setupReminderAndCalendar() {
-  generateAcademicNotifications();
+  refreshAcademicNotifications();
   setupNotifications();
   setupReminderForm();
   setupPersonalCalendarEvents();
