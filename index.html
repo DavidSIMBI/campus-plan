@@ -92,7 +92,10 @@
           <span class="stat-icon" aria-hidden="true"></span>
           <div>
             <span>Completed Tasks</span><strong id="completed-count">0</strong
-            ><small>Great work, David</small>
+            ><small>
+              <span data-i18n="great_work">Great work,</span>
+              <span data-no-translate>David</span>
+            </small>
           </div>
         </article>
       </section>
@@ -280,9 +283,9 @@
           <label>
             Priority
             <select id="reminder-priority">
-              <option>High</option>
-              <option selected>Medium</option>
-              <option>Low</option>
+              <option value="High">High</option>
+              <option value="Medium" selected>Medium</option>
+              <option value="Low">Low</option>
             </select>
           </label>
           <div class="form-actions full">
@@ -294,6 +297,7 @@
         </form>
       </section>
     </div>
+    <script src="js/i18n.js"></script>
     <script src="js/script.js"></script>
   </body>
 </html>

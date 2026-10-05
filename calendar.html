@@ -186,10 +186,10 @@
           /></label>
           <label
             >Event type<select id="calendar-personal-type">
-              <option>Personal</option>
-              <option>Study</option>
-              <option>Meeting</option>
-              <option>Other</option>
+              <option value="Personal">Personal</option>
+              <option value="Study">Study</option>
+              <option value="Meeting">Meeting</option>
+              <option value="Other">Other</option>
             </select></label
           >
           <label
@@ -200,9 +200,9 @@
           /></label>
           <label
             >Priority<select id="calendar-personal-priority">
-              <option>High</option>
-              <option selected>Medium</option>
-              <option>Low</option>
+              <option value="High">High</option>
+              <option value="Medium" selected>Medium</option>
+              <option value="Low">Low</option>
             </select></label
           >
           <label class="full"
@@ -225,6 +225,7 @@
       </section>
     </div>
 
+    <script src="js/i18n.js"></script>
     <script src="js/script.js"></script>
   </body>
 </html>

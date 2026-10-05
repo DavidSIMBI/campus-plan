@@ -22,6 +22,29 @@ let calendarAcademicStore = {
   presentations: null,
 };
 let calendarDataLoaded = false;
+let activeCalendarEvent = null;
+let activePersonalEventFormId = "";
+function t(key, values) {
+  return window.CampusPlanI18n
+    ? window.CampusPlanI18n.t(key, values)
+    : String(key);
+}
+function appErrorMessage(error) {
+  const message = error && error.message ? error.message : String(error);
+  return message === "Failed to fetch"
+    ? t("connection_error")
+    : t(message);
+}
+function setLocalizedText(element, key) {
+  if (!element) return;
+  element.dataset.i18n = key;
+  element.textContent = t(key);
+}
+function appLocale() {
+  return window.CampusPlanI18n
+    ? window.CampusPlanI18n.formatLocale()
+    : "en-GB";
+}
 function applyTheme(theme) {
   const nextTheme = theme === "dark" ? "dark" : "light";
   document.documentElement.dataset.theme = nextTheme;
@@ -40,7 +63,7 @@ function setupTheme() {
     const dark = theme === "dark";
     toggle.setAttribute(
       "aria-label",
-      dark ? "Switch to light mode" : "Switch to dark mode",
+      dark ? t("switch_to_light") : t("switch_to_dark"),
     );
     toggle.setAttribute("aria-pressed", String(dark));
     toggle.innerHTML = dark
@@ -59,6 +82,9 @@ function setupTheme() {
     );
     renderToggle(nextTheme);
   };
+  document.addEventListener("campusplan-language-change", () =>
+    renderToggle(document.documentElement.dataset.theme),
+  );
 }
 function currentUser() {
   try {
@@ -423,19 +449,25 @@ function groupAvatarMarkup(group, extraClass) {
         esc(group.photo) +
         '" alt="' +
         esc(group.name) +
-        ' group photo">'
-    : '<span class="' + className + '" aria-label="Group">CP</span>';
+      " " +
+      esc(t("group_photo")) +
+      '">'
+    : '<span class="' +
+      className +
+      '" aria-label="' +
+      esc(t("group")) +
+      '">CP</span>';
 }
 function formatMessageTime(value) {
   const messageDate = new Date(value);
   if (Number.isNaN(messageDate.getTime())) return "";
-  return messageDate.toLocaleTimeString([], {
+  return messageDate.toLocaleTimeString(appLocale(), {
     hour: "2-digit",
     minute: "2-digit",
   });
 }
 function date(x) {
-  return new Intl.DateTimeFormat("en", {
+  return new Intl.DateTimeFormat(appLocale(), {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -450,12 +482,12 @@ function days(x) {
 function due(x) {
   let n = days(x);
   return n === 0
-    ? "Due today"
+    ? t("due_today")
     : n === 1
-      ? "Due tomorrow"
+      ? t("due_tomorrow")
       : n < 0
-        ? Math.abs(n) + " days overdue"
-        : "Due " + date(x);
+        ? t("days_due", { count: Math.abs(n) })
+        : t("due_in_days", { count: n }) + " (" + date(x) + ")";
 }
 function stat(x) {
   return x === "In Progress" || x === "Preparing"
@@ -488,7 +520,9 @@ function renderAssignments() {
     p = document.getElementById("priority-filter").value,
     old = c.value;
   c.innerHTML =
-    '<option value="">All courses</option>' +
+    '<option value="">' +
+    t("all_courses") +
+    "</option>" +
     [...new Set(all.map((x) => x.course))]
       .sort()
       .map((x) => "<option>" + esc(x) + "</option>")
@@ -501,8 +535,10 @@ function renderAssignments() {
       (!s || x.status === s) &&
       (!p || x.priority === p),
   );
-  document.getElementById("assignment-result-count").textContent =
-    rows.length + " assignment" + (rows.length === 1 ? "" : "s");
+  document.getElementById("assignment-result-count").textContent = t(
+    rows.length === 1 ? "assignment_count_one" : "assignment_count_other",
+    { count: rows.length },
+  );
   list.innerHTML = rows.length
     ? rows
         .map(
@@ -512,8 +548,10 @@ function renderAssignments() {
             '</span><span class="priority ' +
             pri(x.priority) +
             '">' +
-            esc(x.priority) +
-            " priority</span></div><h2>" +
+            t(x.priority) +
+            " " +
+            t("priority_suffix") +
+            "</span></div><h2>" +
             esc(x.title) +
             "</h2><p>" +
             esc(x.description) +
@@ -524,7 +562,7 @@ function renderAssignments() {
             '</span></div><div class="card-footer"><span class="status ' +
             stat(x.status) +
             '">' +
-            esc(x.status) +
+            t(x.status) +
             '</span><div class="card-actions"><button class="text-button" data-edit="' +
             x.id +
             '">Edit</button><button class="text-button danger" data-delete="' +
@@ -533,12 +571,14 @@ function renderAssignments() {
             (x.status !== "Completed"
               ? '<button class="complete-action" data-complete="' +
                 x.id +
-                '">Mark as completed</button>'
+                '">' +
+                t("mark_completed") +
+                "</button>"
               : "") +
             "</article>",
         )
         .join("")
-    : '<p class="empty-state">No assignments match these filters.</p>';
+    : '<p class="empty-state">' + t("no_assignments_match") + "</p>";
 }
 function setupAssignments() {
   if (!document.getElementById("assignment-list")) return;
@@ -551,7 +591,9 @@ function setupAssignments() {
     list.innerHTML =
       '<p class="empty-state assignment-api-error">' +
       esc(message) +
-      ' <button class="text-button" id="retry-assignments" type="button">Retry</button></p>';
+      ' <button class="text-button" id="retry-assignments" type="button">' +
+      t("retry") +
+      "</button></p>";
     document.getElementById("retry-assignments").onclick = loadAssignments;
   };
   const migrateLegacyAssignments = async () => {
@@ -585,7 +627,7 @@ function setupAssignments() {
     localStorage.setItem(migrationKey, "true");
   };
   async function loadAssignments() {
-    list.innerHTML = '<p class="empty-state">Loading assignments...</p>';
+    list.innerHTML = '<p class="empty-state">' + t("loading_assignments") + "</p>";
     resultCount.textContent = "";
     try {
       await migrateLegacyAssignments();
@@ -601,6 +643,7 @@ function setupAssignments() {
     }
   }
   loadAssignments();
+  document.addEventListener("campusplan-language-change", renderAssignments);
   [
     "assignment-search",
     "course-filter",
@@ -643,7 +686,7 @@ function setupAssignments() {
       document.getElementById("assignment-id").value = "";
       document.getElementById("assignment-modal").hidden = true;
       document.getElementById("assignment-modal-title").textContent =
-        "Add assignment";
+        t("add_assignment");
       renderAssignments();
     } catch (error) {
       showError(
@@ -662,7 +705,7 @@ function setupAssignments() {
       e.target.dataset.complete;
     if (!id) return;
     if (e.target.dataset.delete) {
-      if (!confirm("Delete this assignment?")) return;
+      if (!confirm(t("delete_assignment_question"))) return;
       try {
         await assignmentRequest("/" + encodeURIComponent(id), {
           method: "DELETE",
@@ -717,7 +760,7 @@ function setupAssignments() {
         if (el) el.value = x[k === "date" ? "dueDate" : k];
       });
       document.getElementById("assignment-modal-title").textContent =
-        "Edit assignment";
+        t("edit_assignment");
       document.getElementById("assignment-modal").hidden = false;
     }
   };
@@ -731,40 +774,52 @@ function renderTests() {
         .map((test) => {
           const relativeDate =
             test.status === "Completed"
-              ? "Completed"
+              ? t("completed_status")
               : test.status === "Missed"
-                ? "Missed"
+                ? t("missed")
                 : days(test.date) === 0
-                  ? "Today"
+                  ? t("today_short")
                   : days(test.date) === 1
-                    ? "Tomorrow"
-                    : days(test.date) + " days remaining";
+                    ? t("tomorrow")
+                    : t("days_remaining", { count: days(test.date) });
           return (
             '<article class="test-card"><div class="card-top"><span class="course-tag green-bg">' +
             esc(test.course) +
             '</span><div class="card-actions"><button class="text-button" data-edit-test="' +
             test.id +
-            '">Edit</button><button class="text-button danger" data-delete-test="' +
+            '">' +
+            t("edit") +
+            '</button><button class="text-button danger" data-delete-test="' +
             test.id +
-            '">Delete</button></div></div><h2>' +
+            '">' +
+            t("delete") +
+            '</button></div></div><h2>' +
             esc(test.title) +
             "</h2><p>" +
-            esc(test.description || "No description provided.") +
-            "</p><dl><div><dt>Date</dt><dd>" +
+            esc(test.description || t("no_description_provided")) +
+            '</p><dl><div><dt>' +
+            t("date") +
+            "</dt><dd>" +
             date(test.date) +
-            "</dd></div><div><dt>Time</dt><dd>" +
-            esc(test.time || "No time specified") +
-            "</dd></div><div><dt>Room</dt><dd>" +
-            esc(test.room || "No room specified") +
-            "</dd></div><div><dt>Status</dt><dd>" +
-            esc(test.status || "Upcoming") +
+            "</dd></div><div><dt>" +
+            t("time") +
+            "</dt><dd>" +
+            esc(test.time || t("no_time_specified")) +
+            "</dd></div><div><dt>" +
+            t("room") +
+            "</dt><dd>" +
+            esc(test.room || t("no_room")) +
+            "</dd></div><div><dt>" +
+            t("status") +
+            "</dt><dd>" +
+            esc(t(test.status || "Upcoming")) +
             '</dd></div></dl><p class="days-remaining">' +
             relativeDate +
             "</p></article>"
           );
         })
         .join("")
-    : '<p class="empty-state">No tests yet.</p>';
+    : '<p class="empty-state">' + t("no_test_items") + "</p>";
 }
 
 function setupTests() {
@@ -777,7 +832,9 @@ function setupTests() {
     list.innerHTML =
       '<p class="empty-state test-api-error">' +
       esc(message) +
-      ' <button class="text-button" id="retry-tests" type="button">Retry</button></p>';
+      ' <button class="text-button" id="retry-tests" type="button">' +
+      t("retry") +
+      "</button></p>";
     document.getElementById("retry-tests").onclick = loadTests;
   };
   const migrateLegacyTests = async () => {
@@ -822,7 +879,7 @@ function setupTests() {
     localStorage.setItem(migrationKey, "true");
   };
   async function loadTests() {
-    list.innerHTML = '<p class="empty-state">Loading tests...</p>';
+    list.innerHTML = '<p class="empty-state">' + t("loading_tests") + "</p>";
     try {
       await migrateLegacyTests();
       const result = await testRequest();
@@ -838,6 +895,7 @@ function setupTests() {
     }
   }
   loadTests();
+  document.addEventListener("campusplan-language-change", renderTests);
   document.getElementById("test-form").onsubmit = async (event) => {
     event.preventDefault();
     const id = document.getElementById("test-id").value;
@@ -866,7 +924,7 @@ function setupTests() {
       event.target.reset();
       document.getElementById("test-id").value = "";
       document.getElementById("test-modal-title").textContent =
-        "Add test or exam";
+        t("add_test_exam");
       document.getElementById("test-modal").hidden = true;
       renderTests();
     } catch (error) {
@@ -883,7 +941,7 @@ function setupTests() {
     const id = event.target.dataset.editTest || event.target.dataset.deleteTest;
     if (!id) return;
     if (event.target.dataset.deleteTest) {
-      if (!confirm("Delete this test?")) return;
+      if (!confirm(t("delete_test_question"))) return;
       try {
         await testRequest("/" + encodeURIComponent(id), { method: "DELETE" });
         testStore = testStore.filter((test) => String(test.id) !== String(id));
@@ -909,7 +967,7 @@ function setupTests() {
     document.getElementById("test-room").value = test.room || "";
     document.getElementById("test-status").value = test.status || "Upcoming";
     document.getElementById("test-modal-title").textContent =
-      "Edit test or exam";
+      t("edit_test_exam");
     document.getElementById("test-modal").hidden = false;
   };
 }
@@ -926,7 +984,7 @@ function renderPresentations() {
         '</span><span class="status ' +
         stat(x.status) +
         '">' +
-        esc(x.status) +
+        t(x.status) +
         "</span></div><h2>" +
         esc(x.title) +
         '</h2><dl class="presentation-details"><div><dt>Date</dt><dd>' +
@@ -945,10 +1003,12 @@ function renderPresentations() {
         ["Not Started", "Preparing", "Ready", "Completed"]
           .map(
             (y) =>
-              "<option " +
+              '<option value="' +
+              esc(y) +
+              '" ' +
               (x.status === y ? "selected" : "") +
               ">" +
-              y +
+              t(y) +
               "</option>",
           )
           .join("") +
@@ -965,7 +1025,9 @@ function setupPresentations() {
     list.innerHTML =
       '<p class="empty-state presentation-api-error">' +
       esc(message) +
-      ' <button class="text-button" id="retry-presentations" type="button">Retry</button></p>';
+      ' <button class="text-button" id="retry-presentations" type="button">' +
+      t("retry") +
+      "</button></p>";
     document.getElementById("retry-presentations").onclick = loadPresentations;
   };
   const migrateLegacyPresentations = async () => {
@@ -1010,7 +1072,8 @@ function setupPresentations() {
     localStorage.setItem(migrationKey, "true");
   };
   async function loadPresentations() {
-    list.innerHTML = '<p class="empty-state">Loading presentations...</p>';
+    list.innerHTML =
+      '<p class="empty-state">' + t("loading_presentations") + "</p>";
     try {
       await migrateLegacyPresentations();
       const result = await presentationRequest();
@@ -1026,6 +1089,7 @@ function setupPresentations() {
     }
   }
   loadPresentations();
+  document.addEventListener("campusplan-language-change", renderPresentations);
   document.getElementById("presentation-form").onsubmit = async (e) => {
     e.preventDefault();
     const id = document.getElementById("presentation-id").value;
@@ -1061,7 +1125,7 @@ function setupPresentations() {
       e.target.reset();
       document.getElementById("presentation-id").value = "";
       document.getElementById("presentation-modal-title").textContent =
-        "Add presentation";
+        t("add_presentation");
       document.getElementById("presentation-modal").hidden = true;
       renderPresentations();
     } catch (error) {
@@ -1080,7 +1144,7 @@ function setupPresentations() {
       event.target.dataset.deletePresentation;
     if (!id) return;
     if (event.target.dataset.deletePresentation) {
-      if (!confirm("Delete this presentation?")) return;
+      if (!confirm(t("delete_presentation_question"))) return;
       try {
         await presentationRequest("/" + encodeURIComponent(id), {
           method: "DELETE",
@@ -1145,10 +1209,10 @@ function setupPresentations() {
     }
   };
 }
-async function dashboard() {
+async function dashboard(refresh = true) {
   if (document.body.dataset.page !== "dashboard") return;
   let a;
-  if (localStorage.getItem(AUTH_TOKEN_KEY)) {
+  if (refresh && localStorage.getItem(AUTH_TOKEN_KEY)) {
     try {
       const result = await assignmentRequest();
       a = result.assignments || [];
@@ -1157,14 +1221,14 @@ async function dashboard() {
       a = get("assignments");
     }
   } else {
-    a = get("assignments");
+    a = assignmentStore.length ? assignmentStore : get("assignments");
   }
-  let t = get("tests"),
+  let testsData = get("tests"),
     p = get("presentations"),
     done = a.filter((x) => x.status === "Completed").length,
     pc = a.length ? Math.round((done / a.length) * 100) : 0,
     by = (id) => document.getElementById(id);
-  const upcomingTests = t.filter((x) => days(x.date) >= 0);
+  const upcomingTests = testsData.filter((x) => days(x.date) >= 0);
   const upcomingPresentations = p.filter((x) => x.status !== "Completed");
   const student = currentUser();
   const conversations = JSON.parse(
@@ -1202,8 +1266,10 @@ async function dashboard() {
     by("student-name").textContent = student.name.split(" ")[0];
   if (by("classes-today")) by("classes-today").textContent = "3";
   by("progress-percent").textContent = pc + "%";
-  by("progress-summary").textContent =
-    done + " of " + a.length + " assignments completed";
+  by("progress-summary").textContent = t(
+    a.length === 1 ? "progress_summary_one" : "progress_summary_other",
+    { done, total: a.length },
+  );
   by("progress-fill").style.width = pc + "%";
   by("dashboard-upcoming").innerHTML = a
     .filter((x) => x.status !== "Completed")
@@ -1220,16 +1286,18 @@ async function dashboard() {
         '</p><span class="priority ' +
         pri(x.priority) +
         '">' +
-        x.priority +
-        ' priority</span></div><span class="status ' +
+        t(x.priority) +
+        " " +
+        t("priority_suffix") +
+        '</span></div><span class="status ' +
         stat(x.status) +
         '">' +
-        x.status +
+        t(x.status) +
         "</span></article>",
     )
     .join("");
   let e = [
-    ...t.map((x) => ({ ...x, type: "Test" })),
+    ...testsData.map((x) => ({ ...x, type: "Test" })),
     ...p.map((x) => ({ ...x, type: "Presentation" })),
   ]
     .filter((x) => days(x.date) >= 0)
@@ -1241,16 +1309,16 @@ async function dashboard() {
         '<article class="event"><span class="date"><b>' +
         new Date(x.date + "T12:00:00").getDate() +
         "</b>" +
-        new Intl.DateTimeFormat("en", { month: "short" }).format(
+        new Intl.DateTimeFormat(appLocale(), { month: "short" }).format(
           new Date(x.date + "T12:00:00"),
         ) +
         "</span><div><h3>" +
         esc(x.title) +
         "</h3><p>" +
-        x.type +
-        " &middot; In " +
-        days(x.date) +
-        " days</p></div></article>",
+        t(x.type) +
+        " &middot; " +
+        t("days_remaining", { count: days(x.date) }) +
+        "</p></div></article>",
     )
     .join("");
   const recentMessages = conversations
@@ -1279,7 +1347,7 @@ async function dashboard() {
             );
           })
           .join("")
-      : '<p class="empty-state">No recent conversations.</p>';
+      : '<p class="empty-state">' + t("no_recent_conversations") + "</p>";
   }
   const groupContainer = by("dashboard-group-activity");
   if (groupContainer) {
@@ -1302,7 +1370,7 @@ async function dashboard() {
               "</p></div></a>",
           )
           .join("")
-      : '<p class="empty-state">No recent group activity.</p>';
+      : '<p class="empty-state">' + t("no_recent_group_activity") + "</p>";
   }
 }
 function commData(key, initial) {
@@ -1462,7 +1530,7 @@ function setupMessages() {
     c.messages.push({
       from: "David",
       text: text,
-      time: new Date().toLocaleTimeString([], {
+      time: new Date().toLocaleTimeString(appLocale(), {
         hour: "2-digit",
         minute: "2-digit",
       }),
@@ -1626,7 +1694,7 @@ function setupMessagesLegacy() {
     );
     document.getElementById("chat-avatar").outerHTML = chatAvatar;
     document.getElementById("chat-name").textContent = activeUser.fullName;
-    document.getElementById("chat-status").textContent = "CampusPlan student";
+    document.getElementById("chat-status").textContent = t("campusplan_student");
     document.getElementById("private-messages").innerHTML =
       activeMessages.length
         ? activeMessages
@@ -1659,7 +1727,11 @@ function setupMessagesLegacy() {
               );
             })
             .join("")
-        : '<p class="empty-state chat-empty">No messages yet. Start the conversation.</p>';
+        : '<p class="empty-state chat-empty">' +
+          t("no_messages_yet") +
+          " " +
+          t("start_conversation") +
+          "</p>";
   }
   async function loadConversations() {
     try {
@@ -1789,7 +1861,7 @@ function setupMessagesLegacy() {
     const content = input.value.trim();
     if (!activeUserId || !content) return;
     if (content.length > 2000) {
-      input.setCustomValidity("Messages must be 2000 characters or fewer.");
+      input.setCustomValidity(t("messages_length_error"));
       input.reportValidity();
       return;
     }
@@ -1850,7 +1922,7 @@ function setupMessagesV2() {
   let activeUserId = null;
   let activeMessages = [];
 
-  backToList.setAttribute("aria-label", "Back to messages");
+  backToList.setAttribute("aria-label", t("back_to_messages"));
   backToList.textContent = "←";
 
   function rememberProfile(profile) {
@@ -1875,7 +1947,7 @@ function setupMessagesV2() {
 
   function friendlyError(error) {
     return error.message === "Failed to fetch"
-      ? "Unable to connect to CampusPlan server."
+      ? t("connection_error")
       : error.message;
   }
 
@@ -1924,20 +1996,28 @@ function setupMessagesV2() {
               '<span class="conversation-copy"><h3>' +
               esc(profile.fullName) +
               "</h3><p>" +
-              esc(conversation.latestMessage || "No messages yet") +
+              esc(conversation.latestMessage || t("no_messages_yet")) +
               '</p></span><span class="conversation-meta"><time>' +
               (conversation.latestMessageAt
                 ? esc(formatMessageTime(conversation.latestMessageAt))
                 : "") +
               "</time>" +
               (unread
-                ? '<b class="unread" aria-label="' + unread + ' unread messages">' + unread + "</b>"
+                ? '<b class="unread" aria-label="' +
+                  t("unread_messages_aria", { count: unread }) +
+                  '">' +
+                  unread +
+                  "</b>"
                 : "") +
               "</span></button>"
             );
           })
           .join("")
-      : '<p class="empty-state">No conversations yet. Select Contacts to start one.</p>';
+      : '<p class="empty-state">' +
+        t("no_conversations") +
+        " " +
+        t("start_conversation") +
+        "</p>";
   }
 
   function renderContacts() {
@@ -1956,14 +2036,15 @@ function setupMessagesV2() {
               '<span class="contact-copy"><b>' +
               esc(student.fullName) +
               "</b><small>" +
-              esc(details || "CampusPlan student") +
-              "</small><small>Student ID: " +
+              esc(details || t("campusplan_student")) +
+              "</small><small>" +
+              t("student_id_colon") +
               esc(student.studentId) +
               "</small></span></button>"
             );
           })
           .join("")
-      : '<p class="empty-state">No contacts found.</p>';
+      : '<p class="empty-state">' + t("no_contacts_found") + "</p>";
   }
 
   function renderChat() {
@@ -1973,7 +2054,7 @@ function setupMessagesV2() {
       chat.classList.remove("has-conversation");
       input.disabled = true;
       document.getElementById("private-messages").innerHTML =
-        '<p class="empty-state chat-empty">Select a chat or contact to start messaging.</p>';
+        '<p class="empty-state chat-empty">' + t("select_chat_prompt") + "</p>";
       return;
     }
     chat.classList.add("has-conversation");
@@ -1984,7 +2065,7 @@ function setupMessagesV2() {
       '<$1 id="chat-avatar" ',
     );
     document.getElementById("chat-name").textContent = activeUser.fullName;
-    document.getElementById("chat-status").textContent = "CampusPlan student";
+    document.getElementById("chat-status").textContent = t("campusplan_student");
     document.getElementById("private-messages").innerHTML = activeMessages.length
       ? activeMessages
           .map((message) => {
@@ -2001,12 +2082,15 @@ function setupMessagesV2() {
               esc(message.content) +
               "</span><time>" +
               esc(formatMessageTime(message.createdAt)) +
-              (sent ? (message.read ? " â€¢ Read" : " â€¢ Sent") : "") +
+              (sent ? " • " + (message.read ? t("read") : t("sent")) : "") +
               "</time></div></div>"
             );
           })
           .join("")
-      : '<p class="empty-state chat-empty">No messages yet.<br>Start a conversation with ' +
+      : '<p class="empty-state chat-empty">' +
+        t("no_messages_yet") +
+        "<br>" +
+        t("start_conversation_prompt") +
         esc(activeUser.fullName) +
         ".</p>";
   }
@@ -2024,7 +2108,8 @@ function setupMessagesV2() {
   }
 
   async function loadContacts(query = "") {
-    contactList.innerHTML = '<p class="empty-state">Loading contacts...</p>';
+    contactList.innerHTML =
+      '<p class="empty-state">' + t("loading_contacts") + "</p>";
     try {
       const result = await messagesRequest(
         "/students?search=" + encodeURIComponent(query),
@@ -2086,7 +2171,7 @@ function setupMessagesV2() {
     if (!activeUserId || !content) return;
     input.setCustomValidity("");
     if (content.length > 2000) {
-      input.setCustomValidity("Messages must be 2000 characters or fewer.");
+      input.setCustomValidity(t("messages_length_error"));
       input.reportValidity();
       return;
     }
@@ -2108,6 +2193,12 @@ function setupMessagesV2() {
 
   backToList.onclick = () =>
     document.getElementById("private-chat").classList.remove("mobile-open");
+
+  document.addEventListener("campusplan-language-change", () => {
+    renderConversations();
+    renderContacts();
+    renderChat();
+  });
 
   renderChat();
   loadConversations();
@@ -2472,37 +2563,40 @@ function setupGroupsV2() {
               "</h2><p>" +
               esc(group.course) +
               '</p></div></div><p class="group-last-message">' +
-              esc(group.latestMessage || "No messages yet") +
+              esc(group.latestMessage || t("no_messages_yet")) +
               '</p><div class="group-card-meta"><span>' +
-              esc(time || group.type) +
+              esc(time || t(group.type)) +
               "</span>" +
               (unread
                 ? '<span class="unread" aria-label="' +
-                  unread +
-                  ' unread messages">' +
+                  t("unread_messages_aria", { count: unread }) +
+                  '">' +
                   unread +
                   "</span>"
                 : "") +
               '</div><button class="group-open-button" type="button" data-group="' +
               esc(group.id) +
-              '" aria-label="Open ' +
-              esc(group.name) +
+              '" aria-label="' +
+              esc(t("open_group_aria", { name: group.name })) +
               '">' +
               (activeGroup && String(activeGroup.id) === String(group.id)
-                ? "Open conversation"
-                : "Open group") +
+                ? t("open_conversation")
+                : t("open_group")) +
               "</button></article>"
             );
           })
           .join("")
       : '<p class="empty-state">' +
-        (groups.length ? "No groups match your search." : "You have not joined any groups yet.") +
+        (groups.length ? t("no_groups_match") : t("no_groups_joined")) +
         "</p>";
   }
 
   function renderDiscoverGroups(discoverable, searching) {
     if (searching) {
-      discoverContainer.innerHTML = '<p class="empty-state" role="status">Searching groups...</p>';
+      discoverContainer.innerHTML =
+        '<p class="empty-state" role="status">' +
+        t("searching_groups") +
+        "</p>";
       return;
     }
     discoverContainer.innerHTML = discoverable.length
@@ -2518,15 +2612,19 @@ function setupGroupsV2() {
               '</p></div></div><p class="discover-group-description">' +
               esc(group.description) +
               '</p><div class="group-card-meta"><span>' +
-              esc(group.type) +
+              esc(t(group.type)) +
               "</span><span>" +
-              Number(group.memberCount || 0) +
-              " members</span></div><button class=\"button small\" type=\"button\" data-join-group=\"" +
+              t("group_member_count", {
+                count: Number(group.memberCount || 0),
+              }) +
+              "</span></div><button class=\"button small\" type=\"button\" data-join-group=\"" +
               esc(group.id) +
-              '">Join</button></article>',
+              '">' +
+              t("join") +
+              "</button></article>",
           )
           .join("")
-      : '<p class="empty-state">No Course Community groups found.</p>';
+      : '<p class="empty-state">' + t("no_course_communities") + "</p>";
   }
 
   function renderGroup() {
@@ -2538,10 +2636,12 @@ function setupGroupsV2() {
     document.getElementById("group-name").textContent = activeGroup.name;
     document.getElementById("group-description").textContent = activeGroup.description;
     document.getElementById("group-course").textContent = activeGroup.course;
-    document.getElementById("group-member-count").textContent =
-      activeGroup.memberCount + " members";
+    document.getElementById("group-member-count").textContent = t(
+      "group_member_count",
+      { count: activeGroup.memberCount },
+    );
     document.getElementById("group-info-course").textContent = activeGroup.course;
-    document.getElementById("group-info-type").textContent = activeGroup.type;
+    document.getElementById("group-info-type").textContent = t(activeGroup.type);
     document.getElementById("group-edit-name").value = activeGroup.name;
     document.getElementById("group-edit-description").value = activeGroup.description;
     document.getElementById("group-save-info").hidden = !canAdmin;
@@ -2586,7 +2686,7 @@ function setupGroupsV2() {
             );
           })
           .join("")
-      : '<p class="empty-state chat-empty">No group messages yet.</p>';
+      : '<p class="empty-state chat-empty">' + t("no_group_messages") + "</p>";
 
     document.getElementById("member-list").innerHTML = activeGroup.members
       .map(
@@ -2596,16 +2696,18 @@ function setupGroupsV2() {
           "<span>" +
           esc(member.fullName) +
           "</span><small>" +
-          (member.role === "admin" ? "Admin" : "Member") +
+          (member.role === "admin" ? t("admin") : t("member")) +
           "</small>" +
           (canAdmin &&
           String(member.id) !== String(currentUserId) &&
           String(member.id) !== String(activeGroup.createdBy)
             ? '<button class="text-button danger" type="button" data-remove-member="' +
               esc(member.id) +
-              '" aria-label="Remove ' +
-              esc(member.fullName) +
-              '">Remove</button>'
+              '" aria-label="' +
+              esc(t("remove_member_aria", { name: member.fullName })) +
+              '">' +
+              t("remove") +
+              "</button>"
             : "") +
           "</div>",
       )
@@ -2629,7 +2731,9 @@ function setupGroupsV2() {
       return true;
     } catch (error) {
       myGroupsContainer.innerHTML =
-        '<p class="empty-state" role="alert">' + esc(error.message) + "</p>";
+        '<p class="empty-state" role="alert">' +
+        esc(appErrorMessage(error)) +
+        "</p>";
       return false;
     }
   }
@@ -2655,7 +2759,9 @@ function setupGroupsV2() {
     } catch (error) {
       if (requestId !== discoverRequestId) return;
       discoverContainer.innerHTML =
-        '<p class="empty-state" role="alert">' + esc(error.message) + "</p>";
+        '<p class="empty-state" role="alert">' +
+        esc(appErrorMessage(error)) +
+        "</p>";
     }
   }
 
@@ -2666,7 +2772,7 @@ function setupGroupsV2() {
       studentsError = "";
     } catch (error) {
       studentsForGroups = [];
-      studentsError = "Unable to load students: " + error.message;
+      studentsError = t("unable_load_students") + ": " + appErrorMessage(error);
     }
     if (activeGroup) renderGroup();
   }
@@ -2712,14 +2818,14 @@ function setupGroupsV2() {
           { method: "PUT" },
         );
       } catch (error) {
-        alert(error.message);
+        alert(appErrorMessage(error));
       }
     } catch (error) {
       if (requestId !== openRequestId) return;
       document.getElementById("group-chat").hidden = false;
       document.getElementById("group-messages").innerHTML =
         '<p class="empty-state chat-empty" role="alert">' +
-        esc(error.message) +
+        esc(appErrorMessage(error)) +
         "</p>";
       layout.classList.add("has-selected-group", "mobile-chat-open");
     }
@@ -2735,7 +2841,7 @@ function setupGroupsV2() {
     if (!button) return;
     const id = button.dataset.joinGroup;
     button.disabled = true;
-    button.textContent = "Joining...";
+    button.textContent = t("joining");
     try {
       await groupsRequest("/" + encodeURIComponent(id) + "/join", {
         method: "POST",
@@ -2747,9 +2853,9 @@ function setupGroupsV2() {
         await openGroup(id);
       }
     } catch (error) {
-      alert(error.message);
+      alert(appErrorMessage(error));
       button.disabled = false;
-      button.textContent = "Join";
+      button.textContent = t("join");
     }
   });
 
@@ -2792,7 +2898,7 @@ function setupGroupsV2() {
       renderGroup();
       renderMyGroups();
     } catch (error) {
-      alert(error.message);
+      alert(appErrorMessage(error));
     } finally {
       if (submit) submit.disabled = false;
     }
@@ -2835,7 +2941,7 @@ function setupGroupsV2() {
       renderGroup();
       renderMyGroups();
     } catch (error) {
-      alert(error.message);
+      alert(appErrorMessage(error));
     }
   };
 
@@ -2846,7 +2952,7 @@ function setupGroupsV2() {
     if (!file) return;
     if (!file.type.startsWith("image/") || file.size > 2 * 1024 * 1024) {
       input.value = "";
-      alert("Please choose an image smaller than 2 MB.");
+      alert(t("group_photo_invalid"));
       return;
     }
     const reader = new FileReader();
@@ -2863,10 +2969,10 @@ function setupGroupsV2() {
         renderGroup();
         renderMyGroups();
       } catch (error) {
-        alert("Unable to save the group photo in this browser.");
+        alert(t("group_photo_save_error"));
       }
     };
-    reader.onerror = () => alert("Unable to read the selected group photo.");
+    reader.onerror = () => alert(t("group_photo_read_error"));
     reader.readAsDataURL(file);
   };
 
@@ -2882,7 +2988,7 @@ function setupGroupsV2() {
       await openGroup(activeGroup.id);
       await loadGroups();
     } catch (error) {
-      alert(error.message);
+      alert(appErrorMessage(error));
     }
   };
 
@@ -2898,7 +3004,7 @@ function setupGroupsV2() {
       await loadGroups();
       await loadDiscoverGroups();
     } catch (error) {
-      alert(error.message);
+      alert(appErrorMessage(error));
     }
   };
 
@@ -2916,7 +3022,7 @@ function setupGroupsV2() {
       await openGroup(activeGroup.id);
       await loadGroups();
     } catch (error) {
-      alert(error.message);
+      alert(appErrorMessage(error));
     }
   };
 
@@ -2941,11 +3047,28 @@ function setupGroupsV2() {
       switchTab("my-groups");
       await openGroup(result.group.id);
     } catch (error) {
-      alert(error.message);
+      alert(appErrorMessage(error));
     } finally {
       submit.disabled = false;
     }
   };
+
+  document.addEventListener("campusplan-language-change", () => {
+    renderMyGroups();
+    if (activeGroup) {
+      const editName = document.getElementById("group-edit-name");
+      const editDescription = document.getElementById("group-edit-description");
+      const addMember = document.getElementById("group-add-member");
+      const pendingName = editName.value;
+      const pendingDescription = editDescription.value;
+      const selectedMember = addMember.value;
+      renderGroup();
+      editName.value = pendingName;
+      editDescription.value = pendingDescription;
+      addMember.value = selectedMember;
+    }
+    if (!document.getElementById("discover-view").hidden) loadDiscoverGroups();
+  });
 
   Promise.all([loadGroups(), loadStudents()]);
 }
@@ -3461,11 +3584,12 @@ function setupAuth() {
     user = currentUser();
 
   if (login) {
-    document.getElementById("login-notice").textContent = new URLSearchParams(
-      location.search,
-    ).get("notice")
-      ? "Please log in to access CampusPlan."
+    const noticeKey = new URLSearchParams(location.search).get("notice")
+      ? "please_log_in"
       : "";
+    if (noticeKey) {
+      setLocalizedText(document.getElementById("login-notice"), noticeKey);
+    }
     login.onsubmit = async (e) => {
       e.preventDefault();
       let id = document
@@ -3495,11 +3619,14 @@ function setupAuth() {
           return;
         }
 
-        document.getElementById("login-error").textContent = error.message;
+        setLocalizedText(
+          document.getElementById("login-error"),
+          error.message,
+        );
       }
     };
     document.querySelector(".forgot-password").onclick = () =>
-      alert("Password recovery will be implemented later.");
+      alert(t("password_recovery_later"));
   }
 
   if (register) {
@@ -3516,8 +3643,10 @@ function setupAuth() {
           f("reg-password").value.length >= 6 &&
           f("reg-password").value === f("reg-confirm").value;
       if (!valid) {
-        document.getElementById("register-success").textContent =
-          "Please complete every field, use a valid email, and ensure passwords match (6+ characters).";
+        setLocalizedText(
+          document.getElementById("register-success"),
+          "complete_registration",
+        );
         return;
       }
       const registration = {
@@ -3534,13 +3663,17 @@ function setupAuth() {
           method: "POST",
           body: JSON.stringify(registration),
         });
-        document.getElementById("register-success").textContent =
-          result.message;
+        setLocalizedText(
+          document.getElementById("register-success"),
+          result.message,
+        );
         setTimeout(() => (location.href = "login.html"), 800);
       } catch (error) {
         if (!(error instanceof TypeError)) {
-          document.getElementById("register-success").textContent =
-            error.message;
+          setLocalizedText(
+            document.getElementById("register-success"),
+            error.message,
+          );
           return;
         }
         const users = JSON.parse(localStorage.getItem(USER_KEY) || "[]");
@@ -3551,8 +3684,10 @@ function setupAuth() {
               userRecord.studentId === registration.studentId,
           )
         ) {
-          document.getElementById("register-success").textContent =
-            "An account with this email or Student ID already exists.";
+          setLocalizedText(
+            document.getElementById("register-success"),
+            "account_exists",
+          );
           return;
         }
         users.push({
@@ -3565,8 +3700,10 @@ function setupAuth() {
           password: registration.password,
         });
         localStorage.setItem(USER_KEY, JSON.stringify(users));
-        document.getElementById("register-success").textContent =
-          "Account created successfully! Redirecting to login...";
+        setLocalizedText(
+          document.getElementById("register-success"),
+          "account_created_redirect",
+        );
         setTimeout(() => (location.href = "login.html"), 800);
       }
     };
@@ -3588,7 +3725,13 @@ function setupAuth() {
         menu = document.createElement("div");
         menu.className = "profile-menu";
         menu.innerHTML =
-          '<a href="profile.html">Profile</a><a href="profile.html">Settings</a><button id="logout">Logout</button>';
+          '<a href="profile.html">' +
+          t("profile") +
+          '</a><a href="profile.html">' +
+          t("settings") +
+          '</a><button id="logout">' +
+          t("logout") +
+          "</button>";
         button.parentElement.appendChild(menu);
         menu.querySelector("#logout").onclick = () => {
           localStorage.removeItem(AUTH_TOKEN_KEY);
@@ -3601,6 +3744,16 @@ function setupAuth() {
     let name = document.getElementById("student-name");
     if (name) name.textContent = user.name.split(" ")[0];
   }
+
+  document.addEventListener("campusplan-language-change", () => {
+    const menu = document.querySelector(".profile-menu");
+    if (!menu) return;
+    const links = menu.querySelectorAll("a");
+    if (links[0]) links[0].textContent = t("profile");
+    if (links[1]) links[1].textContent = t("settings");
+    const logout = menu.querySelector("#logout");
+    if (logout) logout.textContent = t("logout");
+  });
 
   if (document.body.dataset.page === "profile") {
     const profilePhoto = document.getElementById("profile-photo");
@@ -3617,8 +3770,10 @@ function setupAuth() {
         const file = photoInput.files[0];
         if (!file) return;
         if (!file.type.startsWith("image/") || file.size > 2 * 1024 * 1024) {
-          document.getElementById("profile-notice").textContent =
-            "Choose an image file smaller than 2 MB.";
+          setLocalizedText(
+            document.getElementById("profile-notice"),
+            "invalid_photo",
+          );
           photoInput.value = "";
           return;
         }
@@ -3632,8 +3787,10 @@ function setupAuth() {
           );
           localStorage.setItem(USER_KEY, JSON.stringify(users));
           setPhotoPreview(user.photo);
-          document.getElementById("profile-notice").textContent =
-            "Profile photo updated.";
+          setLocalizedText(
+            document.getElementById("profile-notice"),
+            "photo_updated",
+          );
         };
         reader.readAsDataURL(file);
       };
@@ -3649,8 +3806,10 @@ function setupAuth() {
         localStorage.setItem(USER_KEY, JSON.stringify(users));
         setPhotoPreview();
         if (photoInput) photoInput.value = "";
-        document.getElementById("profile-notice").textContent =
-          "Profile photo removed.";
+        setLocalizedText(
+          document.getElementById("profile-notice"),
+          "photo_removed",
+        );
       };
     }
     ["name", "email", "institution", "program", "year"].forEach(
@@ -3672,8 +3831,10 @@ function setupAuth() {
         );
       localStorage.setItem(USER_KEY, JSON.stringify(users));
       localStorage.setItem(SESSION_KEY, JSON.stringify(updated));
-      document.getElementById("profile-notice").textContent =
-        "Profile saved successfully.";
+      setLocalizedText(
+        document.getElementById("profile-notice"),
+        "profile_updated",
+      );
     };
   }
 }
@@ -3685,14 +3846,23 @@ function setupPasswordVisibility() {
 
     const eye = button.querySelector(".password-eye");
     const eyeOff = button.querySelector(".password-eye-off");
-    button.addEventListener("click", () => {
-      const visible = input.type === "password";
-      input.type = visible ? "text" : "password";
-      button.setAttribute("aria-label", visible ? "Hide password" : "Show password");
+    const updateLabel = () => {
+      const visible = input.type === "text";
+      button.setAttribute(
+        "aria-label",
+        visible ? t("hide_password") : t("show_password"),
+      );
       button.setAttribute("aria-pressed", String(visible));
       eye.hidden = visible;
       eyeOff.hidden = !visible;
+    };
+    button.addEventListener("click", () => {
+      const visible = input.type === "password";
+      input.type = visible ? "text" : "password";
+      updateLabel();
     });
+    updateLabel();
+    document.addEventListener("campusplan-language-change", updateLabel);
   });
 }
 
@@ -3705,7 +3875,7 @@ function addCalendarNavLink() {
 
     const calendarLink = document.createElement("a");
     calendarLink.href = "calendar.html";
-    calendarLink.textContent = "Calendar";
+    calendarLink.textContent = t("calendar");
     if (document.body.dataset.page === "calendar") {
       calendarLink.classList.add("active");
     }
@@ -4035,11 +4205,11 @@ function renderNotificationList() {
             "</strong><span>" +
             esc(item.message) +
             "</span><small>" +
-            esc(item.type) +
+            esc(t(item.type)) +
             "</small></button>",
         )
         .join("")
-    : '<p class="empty-state">No notifications yet.</p>';
+    : '<p class="empty-state">' + t("no_notifications") + "</p>";
 
   if (notificationList) notificationList.innerHTML = html;
   if (dashboardNotifications) dashboardNotifications.innerHTML = html;
@@ -4067,7 +4237,7 @@ function setupNotifications() {
     button.type = "button";
     button.id = "notification-toggle";
     button.className = "notification-button";
-    button.setAttribute("aria-label", "Open notifications");
+    button.setAttribute("aria-label", t("open_notifications"));
     button.innerHTML =
       '<span class="notification-icon" aria-hidden="true"></span><span class="notification-count" id="notification-count">0</span>';
     header.appendChild(button);
@@ -4079,7 +4249,11 @@ function setupNotifications() {
     newPanel.className = "notification-panel";
     newPanel.hidden = true;
     newPanel.innerHTML =
-      '<div class="panel-top"><h3>Notifications</h3><button class="text-button" id="mark-all-read" type="button">Mark all as read</button></div><div id="notification-list"></div>';
+      '<div class="panel-top"><h3>' +
+      t("notifications") +
+      '</h3><button class="text-button" id="mark-all-read" type="button">' +
+      t("mark_all_read") +
+      "</button></div><div id=\"notification-list\"></div>";
     header.appendChild(newPanel);
   }
 
@@ -4142,6 +4316,7 @@ function setupNotifications() {
     };
   }
 
+  document.addEventListener("campusplan-language-change", renderNotificationList);
   renderNotificationList();
 }
 
@@ -4158,24 +4333,24 @@ function renderDashboardReminders() {
           const level = getReminderLevel(daysLeft);
           const label =
             daysLeft === 0
-              ? "Due today"
+              ? t("due_today_title")
               : daysLeft === 1
-                ? "Due tomorrow"
+                ? t("due_tomorrow_title")
                 : daysLeft > 0
-                  ? "Due in " + daysLeft + " days"
-                  : Math.abs(daysLeft) + " days overdue";
+                  ? t("due_in_days", { count: daysLeft })
+                  : t("days_due", { count: Math.abs(daysLeft) });
 
           return (
             '<div class="reminder-item"><strong>' +
             esc(event.title) +
             "</strong><small>" +
-            esc(event.type) +
+            esc(t(event.type)) +
             " • " +
             esc(event.course) +
             '</small><span class="reminder-status ' +
             level.className +
             '">' +
-            level.label +
+            t(level.label) +
             "</span><small>" +
             label +
             "</small></div>"
@@ -4183,7 +4358,7 @@ function renderDashboardReminders() {
         })
         .join("") +
       "</div>"
-    : '<p class="empty-state">No reminders yet.</p>';
+    : '<p class="empty-state">' + t("no_reminders") + "</p>";
 }
 
 function renderCalendarPreview() {
@@ -4200,7 +4375,7 @@ function renderCalendarPreview() {
             '<div class="dashboard-mini-item"><div class="dashboard-mini-date"><b>' +
             date.getDate() +
             "</b>" +
-            new Intl.DateTimeFormat("en", { month: "short" }).format(date) +
+            new Intl.DateTimeFormat(appLocale(), { month: "short" }).format(date) +
             '</div><div class="dashboard-mini-copy"><h3>' +
             esc(item.title) +
             "</h3><p>" +
@@ -4212,7 +4387,7 @@ function renderCalendarPreview() {
         })
         .join("") +
       "</div>"
-    : '<p class="empty-state">No events yet.</p>';
+    : '<p class="empty-state">' + t("no_events") + "</p>";
 }
 
 function setupReminderForm() {
@@ -4274,7 +4449,7 @@ function renderCalendarPage() {
     return map;
   }, {});
 
-  monthLabel.textContent = new Intl.DateTimeFormat("en-US", {
+  monthLabel.textContent = new Intl.DateTimeFormat(appLocale(), {
     month: "long",
     year: "numeric",
   }).format(monthStart);
@@ -4317,7 +4492,12 @@ function renderCalendarPage() {
         isoDate +
         '" aria-label="' +
         isoDate +
-        (events.length ? ": " + events.length + " events" : "") +
+        (events.length
+          ? ": " +
+            t(events.length === 1 ? "event_count_aria_one" : "event_count_aria", {
+              count: events.length,
+            })
+          : "") +
         '"><span class="calendar-day-number">' +
         entry.date.getDate() +
         "</span>" +
@@ -4369,6 +4549,7 @@ function renderCalendarPage() {
 function openEventModal(event) {
   const modal = document.getElementById("calendar-event-modal");
   if (!modal) return;
+  activeCalendarEvent = event;
 
   const title = document.getElementById("calendar-event-title");
   const type = document.getElementById("calendar-event-type");
@@ -4384,39 +4565,45 @@ function openEventModal(event) {
   if (course) course.textContent = event.course;
   if (date) {
     date.textContent = event.date
-      ? new Intl.DateTimeFormat("en-US", {
+      ? new Intl.DateTimeFormat(appLocale(), {
           month: "long",
           day: "numeric",
           year: "numeric",
         }).format(new Date(event.date + "T12:00:00"))
-      : "No date";
+      : t("no_date");
   }
-  if (time) time.textContent = event.time || "No time specified";
+  if (time) time.textContent = event.time || t("no_time_specified");
   if (description)
-    description.textContent = event.description || "No description available.";
-  if (status) status.textContent = event.status || "Scheduled";
-  if (priority) priority.textContent = event.priority || "Medium";
+    description.textContent = event.description || t("no_description");
+  if (status) status.textContent = t(event.status || "Scheduled");
+  if (priority) priority.textContent = t(event.priority || "Medium");
   const actions = document.getElementById("calendar-event-actions");
   if (actions) {
     actions.innerHTML =
       event.eventType === "personal"
-        ? '<button class="button secondary" type="button" id="calendar-event-edit">Edit</button><button class="button danger-button" type="button" id="calendar-event-delete">Delete</button>'
-        : '<span class="event-source-note">Managed from ' +
+        ? '<button class="button secondary" type="button" id="calendar-event-edit">' +
+          t("edit") +
+          '</button><button class="button danger-button" type="button" id="calendar-event-delete">' +
+          t("delete") +
+          "</button>"
+        : '<span class="event-source-note">' +
+          t("managed_from") +
+          " " +
           esc(
             event.type === "Assignment"
-              ? "Assignments"
+              ? t("assignments")
               : event.type === "Test"
-                ? "Tests"
+                ? t("tests")
                 : event.type === "Presentation"
-                  ? "Presentations"
-                  : "Reminders",
+                  ? t("presentations")
+                  : t("reminders"),
           ) +
           "</span>";
     if (event.eventType === "personal") {
       document.getElementById("calendar-event-edit").onclick = () =>
         openPersonalEventForm(event.personalEventId);
       document.getElementById("calendar-event-delete").onclick = () => {
-        if (!confirm("Delete this personal event?")) return;
+        if (!confirm(t("delete_event_confirm"))) return;
         calendarRequest("/" + encodeURIComponent(event.personalEventId), {
           method: "DELETE",
         })
@@ -4447,9 +4634,10 @@ function openPersonalEventForm(eventId) {
   const event = getPersonalCalendarEvents().find((item) => item.id === eventId);
   const form = document.getElementById("calendar-event-form");
   if (!form) return;
+  activePersonalEventFormId = eventId || "";
   document.getElementById("calendar-event-form-title").textContent = event
-    ? "Edit personal event"
-    : "Add personal event";
+    ? t("edit_personal_event")
+    : t("add_personal_event");
   document.getElementById("calendar-personal-id").value = event ? event.id : "";
   document.getElementById("calendar-personal-title").value = event
     ? event.title
@@ -4490,11 +4678,11 @@ function setupPersonalCalendarEvents() {
     const endTime = document.getElementById("calendar-personal-end").value;
     const error = document.getElementById("calendar-personal-error");
     if (endTime && !startTime) {
-      error.textContent = "Add a start time before setting an end time.";
+      error.textContent = t("start_time_required");
       return;
     }
     if (startTime && endTime && endTime <= startTime) {
-      error.textContent = "End time must be after the start time.";
+      error.textContent = t("end_after_start");
       return;
     }
     const id = document.getElementById("calendar-personal-id").value;
@@ -4571,7 +4759,9 @@ function setupTimetable() {
     list.innerHTML =
       '<p class="empty-state timetable-api-error">' +
       esc(message) +
-      ' <button class="text-button" id="retry-timetable" type="button">Retry</button></p>';
+      ' <button class="text-button" id="retry-timetable" type="button">' +
+      t("retry") +
+      "</button></p>";
     document.getElementById("retry-timetable").onclick = loadTimetable;
   };
   const saveCache = () =>
@@ -4606,7 +4796,7 @@ function setupTimetable() {
     localStorage.setItem(migrationKey, "true");
   };
   async function loadTimetable() {
-    list.innerHTML = '<p class="empty-state">Loading timetable...</p>';
+    list.innerHTML = '<p class="empty-state">' + t("loading_timetable") + "</p>";
     try {
       await migrateLegacyTimetable();
       const result = await timetableRequest();
@@ -4636,7 +4826,7 @@ function setupTimetable() {
             if (!dayEntries.length) return "";
             return (
               '<section class="timetable-day"><h2>' +
-              day +
+              t(day) +
               '</h2><div class="timetable-day-entries">' +
               dayEntries
                 .map(
@@ -4651,28 +4841,43 @@ function setupTimetable() {
                     esc(
                       [entry.courseCode, entry.room]
                         .filter(Boolean)
-                        .join(" · ") || "No room specified",
+                        .join(" · ") || t("no_room"),
                     ) +
                     "</p>" +
                     (entry.lecturer
-                      ? "<small>Lecturer: " + esc(entry.lecturer) + "</small>"
+                      ? "<small>" +
+                        t("lecturer") +
+                        " " +
+                        esc(entry.lecturer) +
+                        "</small>"
                       : "") +
                     '</div><div class="card-actions"><button class="text-button" data-edit-class="' +
                     entry.id +
-                    '">Edit</button><button class="text-button danger" data-delete-class="' +
+                    '">' +
+                    t("edit") +
+                    '</button><button class="text-button danger" data-delete-class="' +
                     entry.id +
-                    '">Delete</button></div></article>',
+                    '">' +
+                    t("delete") +
+                    "</button></div></article>",
                 )
                 .join("") +
               "</div></section>"
             );
           })
           .join("")
-      : '<div class="panel timetable-empty"><h2>No classes added yet.</h2><p>Add your weekly classes to build your timetable.</p><button class="button" type="button" data-open-modal="timetable-modal">Add Class</button></div>';
+      : '<div class="panel timetable-empty"><h2>' +
+        t("no_classes") +
+        "</h2><p>" +
+        t("add_weekly_classes") +
+        '</p><button class="button" type="button" data-open-modal="timetable-modal">' +
+        t("add_class_action") +
+        "</button></div>";
     modal();
   }
+  document.addEventListener("campusplan-language-change", render);
   function editEntry(entry) {
-    document.getElementById("timetable-modal-title").textContent = "Edit class";
+    document.getElementById("timetable-modal-title").textContent = t("edit_class");
     document.getElementById("timetable-id").value = entry.id;
     [
       "courseName",
@@ -4698,7 +4903,7 @@ function setupTimetable() {
       editEntry(
         timetableStore.find((entry) => String(entry.id) === String(editId)),
       );
-    if (deleteId && confirm("Delete this class from your timetable?")) {
+    if (deleteId && confirm(t("delete_class_confirm"))) {
       timetableRequest("/" + encodeURIComponent(deleteId), { method: "DELETE" })
         .then(() => {
           timetableStore = timetableStore.filter(
@@ -4722,11 +4927,11 @@ function setupTimetable() {
     const endTime = document.getElementById("timetable-end").value;
     const error = document.getElementById("timetable-error");
     if (!document.getElementById("timetable-course").value.trim()) {
-      error.textContent = "Course or module name is required.";
+      error.textContent = t("course_required");
       return;
     }
     if (!startTime || !endTime || endTime <= startTime) {
-      error.textContent = "End time must be after the start time.";
+      error.textContent = t("end_after_start");
       return;
     }
     const id = document.getElementById("timetable-id").value;
@@ -4820,6 +5025,22 @@ function setupReminderAndCalendar() {
   loadCalendarData();
   renderDashboardReminders();
   renderCalendarPreview();
+  document.addEventListener("campusplan-language-change", () => {
+    renderDashboardReminders();
+    renderCalendarPreview();
+    renderCalendarPage();
+    const eventModal = document.getElementById("calendar-event-modal");
+    if (eventModal && !eventModal.hidden && activeCalendarEvent) {
+      openEventModal(activeCalendarEvent);
+    }
+    const eventFormModal = document.getElementById("calendar-event-form-modal");
+    if (eventFormModal && !eventFormModal.hidden) {
+      document.getElementById("calendar-event-form-title").textContent =
+        activePersonalEventFormId
+          ? t("edit_personal_event")
+          : t("add_personal_event");
+    }
+  });
 }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -4841,4 +5062,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupGroupsV2();
   setupTimetable();
   setupReminderAndCalendar();
+  document.addEventListener("campusplan-language-change", () => {
+    if (document.body.dataset.page === "dashboard") dashboard(false);
+  });
 });

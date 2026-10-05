@@ -63,16 +63,16 @@
         ><label
           >Status<select id="status-filter">
             <option value="">All statuses</option>
-            <option>Not Started</option>
-            <option>In Progress</option>
-            <option>Completed</option>
+            <option value="Not Started">Not Started</option>
+            <option value="In Progress">In Progress</option>
+            <option value="Completed">Completed</option>
           </select></label
         ><label
           >Priority<select id="priority-filter">
             <option value="">All priorities</option>
-            <option>High</option>
-            <option>Medium</option>
-            <option>Low</option>
+            <option value="High">High</option>
+            <option value="Medium">Medium</option>
+            <option value="Low">Low</option>
           </select></label
         >
       </section>
@@ -113,15 +113,15 @@
             >Due date<input id="assignment-date" type="date" required /></label
           ><label
             >Priority<select id="assignment-priority">
-              <option>High</option>
-              <option selected>Medium</option>
-              <option>Low</option>
+              <option value="High">High</option>
+              <option value="Medium" selected>Medium</option>
+              <option value="Low">Low</option>
             </select></label
           ><label
             >Status<select id="assignment-status">
-              <option>Not Started</option>
-              <option>In Progress</option>
-              <option>Completed</option>
+              <option value="Not Started">Not Started</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Completed">Completed</option>
             </select></label
           >
           <div class="form-actions full">
@@ -132,6 +132,7 @@
         </form>
       </section>
     </div>
+    <script src="js/i18n.js"></script>
     <script src="js/script.js"></script>
   </body>
 </html>

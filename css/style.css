@@ -105,6 +105,8 @@ textarea:focus-visible {
   align-items: center;
   gap: 3px;
   flex: 1;
+  min-width: 0;
+  overflow-x: auto;
 }
 .main-nav a {
   color: #526078;
@@ -1308,13 +1310,16 @@ textarea:focus-visible {
 .group-chat[hidden] {
   display: none;
 }
-@media (max-width: 900px) {
+@media (max-width: 1100px) {
   .site-header {
-    padding: 0 20px;
+    padding-right: 20px;
+    padding-left: 20px;
     gap: 15px;
   }
   .main-nav {
-    gap: 0;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: thin;
   }
   .main-nav a {
     padding: 8px 6px;
@@ -1322,6 +1327,31 @@ textarea:focus-visible {
   }
   .profile-name {
     display: none;
+  }
+  .site-header > .language-selector {
+    margin-left: 0;
+  }
+}
+@media (max-width: 900px) {
+  .site-header {
+    padding: 0 20px;
+    gap: 15px;
+  }
+  .main-nav {
+    gap: 0;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+  .main-nav a {
+    padding: 8px 6px;
+    font-size: 12px;
+  }
+  .profile-name {
+    display: none;
+  }
+  .site-header > .language-selector {
+    margin-left: 0;
   }
   .dashboard-grid {
     grid-template-columns: 1fr;
@@ -1343,6 +1373,7 @@ textarea:focus-visible {
   .site-header {
     height: 63px;
     justify-content: space-between;
+    gap: 2px;
   }
   .menu-toggle {
     display: block;
@@ -2073,6 +2104,78 @@ textarea:focus-visible {
 .auth-card > p {
   color: var(--muted);
   margin: 0 0 22px;
+}
+.language-selector {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-alt);
+}
+.language-selector button {
+  min-width: 32px;
+  min-height: 28px;
+  padding: 4px 7px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+.language-selector button.active {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 1px 3px rgba(23, 34, 59, 0.12);
+}
+.language-selector button:hover {
+  color: var(--blue);
+}
+.language-selector button:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.site-header > .language-selector {
+  margin-left: auto;
+}
+.auth-card > .language-selector {
+  display: flex;
+  width: max-content;
+  margin: -12px 0 14px auto;
+}
+@media (max-width: 650px) {
+  .brand {
+    font-size: 20px;
+  }
+  .language-selector button {
+    min-width: 30px;
+    padding-right: 5px;
+    padding-left: 5px;
+  }
+}
+@media (max-width: 370px) {
+  .site-header {
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+  .brand {
+    font-size: 18px;
+  }
+  .language-selector button {
+    min-width: 28px;
+    padding-right: 4px;
+    padding-left: 4px;
+  }
+  .site-header .theme-toggle {
+    width: 30px;
+  }
+}
+:root[data-theme="dark"] .language-selector button.active {
+  background: var(--surface);
+  color: var(--ink);
 }
 .password-form-field {
   display: grid;
