@@ -3494,6 +3494,7 @@ function setupAuth() {
           location.href = "index.html";
           return;
         }
+
         document.getElementById("login-error").textContent = error.message;
       }
     };
@@ -3675,6 +3676,24 @@ function setupAuth() {
         "Profile saved successfully.";
     };
   }
+}
+
+function setupPasswordVisibility() {
+  document.querySelectorAll("[data-password-toggle]").forEach((button) => {
+    const input = document.getElementById(button.getAttribute("aria-controls"));
+    if (!input) return;
+
+    const eye = button.querySelector(".password-eye");
+    const eyeOff = button.querySelector(".password-eye-off");
+    button.addEventListener("click", () => {
+      const visible = input.type === "password";
+      input.type = visible ? "text" : "password";
+      button.setAttribute("aria-label", visible ? "Hide password" : "Show password");
+      button.setAttribute("aria-pressed", String(visible));
+      eye.hidden = visible;
+      eyeOff.hidden = !visible;
+    });
+  });
 }
 
 function addCalendarNavLink() {
@@ -4806,6 +4825,7 @@ function setupReminderAndCalendar() {
 document.addEventListener("DOMContentLoaded", () => {
   setupTheme();
   setupAuth();
+  setupPasswordVisibility();
 
   let b = document.querySelector(".menu-toggle"),
     n = document.querySelector(".main-nav");
