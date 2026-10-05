@@ -159,6 +159,83 @@ async function listGroups(req, res) {
   }
 }
 
+async function discoverGroups(req, res) {
+  const search = String(req.query.search || "").trim();
+  const term = `%${search}%`;
+  try {
+    const [rows] = await pool.execute(
+      `SELECT g.id, g.name, g.description, g.course, g.group_type, g.created_at,
+              (SELECT COUNT(*) FROM group_members gm WHERE gm.group_id = g.id) AS member_count
+       FROM \`groups\` g
+       WHERE g.group_type = 'Course Community'
+         AND NOT EXISTS (
+           SELECT 1 FROM group_members membership
+           WHERE membership.group_id = g.id AND membership.user_id = ?
+         )
+         AND (g.name LIKE ? OR g.course LIKE ? OR g.group_type LIKE ?)
+       ORDER BY g.name ASC, g.id ASC`,
+      [req.user.id, term, term, term],
+    );
+    return res.json({
+      success: true,
+      groups: rows.map((group) => ({
+        id: group.id,
+        name: group.name,
+        description: group.description,
+        course: group.course,
+        type: group.group_type,
+        memberCount: Number(group.member_count || 0),
+        createdAt: group.created_at,
+      })),
+    });
+  } catch (error) {
+    console.error("Discover groups error:", error.message);
+    return res.status(500).json({ success: false, message: "Unable to discover groups right now." });
+  }
+}
+
+async function joinGroup(req, res) {
+  const id = groupId(req.params.id);
+  if (!id) return res.status(400).json({ success: false, message: "A valid group is required." });
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [groups] = await connection.execute(
+      "SELECT id, group_type FROM `groups` WHERE id = ? FOR UPDATE",
+      [id],
+    );
+    const group = groups[0];
+    if (!group) {
+      await connection.rollback();
+      return res.status(404).json({ success: false, message: "Group not found." });
+    }
+    if (group.group_type !== "Course Community") {
+      await connection.rollback();
+      return res.status(403).json({ success: false, message: "This group is not available to join." });
+    }
+    try {
+      await connection.execute(
+        "INSERT INTO group_members (group_id, user_id, role) VALUES (?, ?, 'member')",
+        [id, req.user.id],
+      );
+    } catch (error) {
+      if (error.code === "ER_DUP_ENTRY") {
+        await connection.rollback();
+        return res.status(409).json({ success: false, message: "You are already a member of this group." });
+      }
+      throw error;
+    }
+    await connection.commit();
+    return res.status(201).json({ success: true, message: "You joined the group successfully." });
+  } catch (error) {
+    await connection.rollback();
+    console.error("Join group error:", error.message);
+    return res.status(500).json({ success: false, message: "Unable to join the group right now." });
+  } finally {
+    connection.release();
+  }
+}
+
 async function getGroup(req, res) {
   try {
     const access = await requireMember(req, res);
@@ -404,6 +481,8 @@ async function markMessagesRead(req, res) {
 module.exports = {
   searchStudents,
   listGroups,
+  discoverGroups,
+  joinGroup,
   getGroup,
   createGroup,
   updateGroup,

@@ -38,23 +38,47 @@
           + Create group
         </button>
       </section>
-      <h2 class="section-label">Private groups</h2>
-      <section class="group-grid" id="private-groups"></section>
-      <h2 class="section-label">Course communities</h2>
-      <section class="group-grid" id="communities"></section>
-      <section class="panel group-chat" id="group-chat" hidden>
+      <section class="groups-layout" id="groups-layout">
+        <aside class="groups-sidebar">
+          <label class="search" for="group-search"
+            ><span class="visually-hidden">Search my groups</span><input
+              id="group-search"
+              type="search"
+              placeholder="Search my groups..."
+          /></label>
+          <div class="group-tabs" role="tablist" aria-label="Group views">
+            <button class="group-tab active" id="my-groups-tab" type="button" role="tab" aria-selected="true" aria-controls="my-groups-view">My Groups</button>
+            <button class="group-tab" id="discover-tab" type="button" role="tab" aria-selected="false" aria-controls="discover-view">Discover</button>
+          </div>
+          <section id="my-groups-view" role="tabpanel" aria-labelledby="my-groups-tab">
+            <div id="my-groups" aria-live="polite"></div>
+          </section>
+          <section id="discover-view" role="tabpanel" aria-labelledby="discover-tab" hidden>
+            <label class="search groups-discover-search" for="discover-search"
+              ><span class="visually-hidden">Search discoverable groups</span><input
+                id="discover-search"
+                type="search"
+                placeholder="Search groups..."
+            /></label>
+            <div id="discover-groups" aria-live="polite"></div>
+          </section>
+        </aside>
+        <section class="panel group-chat" id="group-chat" hidden>
         <header class="chat-header">
-          <button class="back-button" id="group-back" type="button">←</button>
+          <button class="back-button" id="group-back" type="button" aria-label="Back to groups">Back</button>
           <span class="avatar group-avatar">CP</span>
           <div>
             <h2 id="group-name"></h2>
             <p id="group-description"></p>
+            <small id="group-course"></small>
             <small id="group-member-count"></small>
           </div>
           <button
             class="text-button chat-action"
             id="group-info-toggle"
             type="button"
+            aria-expanded="false"
+            aria-controls="group-info"
           >
             Group info
           </button>
@@ -66,6 +90,7 @@
               <input
                 id="group-input"
                 placeholder="Message this group..."
+                aria-label="Message this group"
               /><button
                 class="send-button"
                 type="submit"
@@ -77,6 +102,9 @@
           </div>
           <aside class="members" id="group-info" hidden>
             <h3>Group information</h3>
+            <p id="group-students-status" class="empty-state" role="status" hidden></p>
+            <p class="group-info-detail"><b>Course</b><span id="group-info-course"></span></p>
+            <p class="group-info-detail"><b>Type</b><span id="group-info-type"></span></p>
             <label class="group-edit-field"
               >Group photo<input
                 id="group-photo-input"
@@ -114,6 +142,7 @@
             <div id="member-list"></div>
           </aside>
         </div>
+        </section>
       </section>
     </main>
     <div class="modal" id="group-modal" hidden>

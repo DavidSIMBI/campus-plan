@@ -3,6 +3,8 @@ const { requireAuth } = require("../middleware/authMiddleware");
 const {
   searchStudents,
   listGroups,
+  discoverGroups,
+  joinGroup,
   getGroup,
   createGroup,
   updateGroup,
@@ -18,8 +20,10 @@ const router = express.Router();
 
 router.use(requireAuth);
 router.get("/students/search", searchStudents);
+router.get("/discover", discoverGroups);
 router.get("/", listGroups);
 router.post("/", createGroup);
+router.post("/:id/join", joinGroup);
 router.get("/:id", getGroup);
 router.put("/:id", updateGroup);
 router.post("/:id/members", addMember);

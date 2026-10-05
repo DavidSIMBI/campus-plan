@@ -2407,6 +2407,552 @@ function setupGroupsLocalPrototype() {
 function setupGroupsV2() {
   if (document.body.dataset.page !== "groups") return;
 
+  const layout = document.getElementById("groups-layout");
+  const myGroupsContainer = document.getElementById("my-groups");
+  const discoverContainer = document.getElementById("discover-groups");
+  const searchInput = document.getElementById("group-search");
+  const discoverSearchInput = document.getElementById("discover-search");
+  const tabs = [
+    { name: "my-groups", button: document.getElementById("my-groups-tab"), panel: document.getElementById("my-groups-view") },
+    { name: "discover", button: document.getElementById("discover-tab"), panel: document.getElementById("discover-view") },
+  ];
+  const photoStorageKey = userKey("campusplan-group-photos");
+  let groupPhotos = {};
+  let groups = [];
+  let studentsForGroups = [];
+  let studentsError = "";
+  let activeGroup = null;
+  let discoverRequestId = 0;
+  let openRequestId = 0;
+  let discoverTimer;
+
+  try {
+    groupPhotos = JSON.parse(localStorage.getItem(photoStorageKey) || "{}") || {};
+  } catch (error) {
+    groupPhotos = {};
+  }
+
+  function saveGroupPhotos() {
+    localStorage.setItem(photoStorageKey, JSON.stringify(groupPhotos));
+  }
+
+  function withLocalPhoto(group) {
+    return { ...group, photo: groupPhotos[group.id] || "" };
+  }
+
+  function memberAvatar(member) {
+    const savedProfile = getUserProfile(member.studentId) || {};
+    return profileAvatarMarkup({
+      fullName: member.fullName,
+      photo: savedProfile.photo,
+    });
+  }
+
+  function renderMyGroups() {
+    const search = searchInput.value.trim().toLocaleLowerCase();
+    const matchingGroups = groups.filter((group) =>
+      [group.name, group.course, group.description]
+        .join(" ")
+        .toLocaleLowerCase()
+        .includes(search),
+    );
+    myGroupsContainer.innerHTML = matchingGroups.length
+      ? matchingGroups
+          .map((group) => {
+            const unread = Number(group.unreadCount || 0);
+            const time = group.latestMessageAt
+              ? formatMessageTime(group.latestMessageAt)
+              : "";
+            return (
+              '<article class="group-card group-list-card">' +
+              '<div class="group-card-top">' +
+              groupAvatarMarkup(group) +
+              "<div><h2>" +
+              esc(group.name) +
+              "</h2><p>" +
+              esc(group.course) +
+              '</p></div></div><p class="group-last-message">' +
+              esc(group.latestMessage || "No messages yet") +
+              '</p><div class="group-card-meta"><span>' +
+              esc(time || group.type) +
+              "</span>" +
+              (unread
+                ? '<span class="unread" aria-label="' +
+                  unread +
+                  ' unread messages">' +
+                  unread +
+                  "</span>"
+                : "") +
+              '</div><button class="group-open-button" type="button" data-group="' +
+              esc(group.id) +
+              '" aria-label="Open ' +
+              esc(group.name) +
+              '">' +
+              (activeGroup && String(activeGroup.id) === String(group.id)
+                ? "Open conversation"
+                : "Open group") +
+              "</button></article>"
+            );
+          })
+          .join("")
+      : '<p class="empty-state">' +
+        (groups.length ? "No groups match your search." : "You have not joined any groups yet.") +
+        "</p>";
+  }
+
+  function renderDiscoverGroups(discoverable, searching) {
+    if (searching) {
+      discoverContainer.innerHTML = '<p class="empty-state" role="status">Searching groups...</p>';
+      return;
+    }
+    discoverContainer.innerHTML = discoverable.length
+      ? discoverable
+          .map(
+            (group) =>
+              '<article class="group-card discover-group-card"><div class="group-card-top">' +
+              groupAvatarMarkup(group) +
+              "<div><h2>" +
+              esc(group.name) +
+              "</h2><p>" +
+              esc(group.course) +
+              '</p></div></div><p class="discover-group-description">' +
+              esc(group.description) +
+              '</p><div class="group-card-meta"><span>' +
+              esc(group.type) +
+              "</span><span>" +
+              Number(group.memberCount || 0) +
+              " members</span></div><button class=\"button small\" type=\"button\" data-join-group=\"" +
+              esc(group.id) +
+              '">Join</button></article>',
+          )
+          .join("")
+      : '<p class="empty-state">No Course Community groups found.</p>';
+  }
+
+  function renderGroup() {
+    if (!activeGroup) return;
+    const currentUserId = currentUser()?.id;
+    const canAdmin = activeGroup.currentUserRole === "admin";
+    const chat = document.getElementById("group-chat");
+    chat.querySelector(".group-avatar").outerHTML = groupAvatarMarkup(activeGroup);
+    document.getElementById("group-name").textContent = activeGroup.name;
+    document.getElementById("group-description").textContent = activeGroup.description;
+    document.getElementById("group-course").textContent = activeGroup.course;
+    document.getElementById("group-member-count").textContent =
+      activeGroup.memberCount + " members";
+    document.getElementById("group-info-course").textContent = activeGroup.course;
+    document.getElementById("group-info-type").textContent = activeGroup.type;
+    document.getElementById("group-edit-name").value = activeGroup.name;
+    document.getElementById("group-edit-description").value = activeGroup.description;
+    document.getElementById("group-save-info").hidden = !canAdmin;
+    document.getElementById("group-photo-input").closest("label").hidden = !canAdmin;
+    document.getElementById("group-edit-name").disabled = !canAdmin;
+    document.getElementById("group-edit-description").disabled = !canAdmin;
+    document.querySelector(".group-member-tools").hidden = !canAdmin;
+
+    const memberIds = new Set(activeGroup.members.map((member) => String(member.id)));
+    document.getElementById("group-add-member").innerHTML = studentsForGroups
+      .filter((student) => !memberIds.has(String(student.id)))
+      .map(
+        (student) =>
+          '<option value="' + esc(student.id) + '">' + esc(student.fullName) + "</option>",
+      )
+      .join("");
+    const studentStatus = document.getElementById("group-students-status");
+    studentStatus.textContent = studentsError;
+    studentStatus.hidden = !studentsError;
+
+    document.getElementById("group-messages").innerHTML = activeGroup.messages.length
+      ? activeGroup.messages
+          .map((message) => {
+            const sent = String(message.senderId) === String(currentUserId);
+            return (
+              '<div class="message-row ' +
+              (sent ? "sent-row" : "received-row") +
+              '">' +
+              memberAvatar({
+                fullName: message.senderName,
+                studentId: message.senderStudentId,
+              }) +
+              '<div class="bubble ' +
+              (sent ? "sent" : "received") +
+              '"><b class="message-sender">' +
+              esc(message.senderName) +
+              "</b><span>" +
+              esc(message.content) +
+              "</span><time>" +
+              esc(formatMessageTime(message.createdAt)) +
+              "</time></div></div>"
+            );
+          })
+          .join("")
+      : '<p class="empty-state chat-empty">No group messages yet.</p>';
+
+    document.getElementById("member-list").innerHTML = activeGroup.members
+      .map(
+        (member) =>
+          '<div class="member">' +
+          memberAvatar(member) +
+          "<span>" +
+          esc(member.fullName) +
+          "</span><small>" +
+          (member.role === "admin" ? "Admin" : "Member") +
+          "</small>" +
+          (canAdmin &&
+          String(member.id) !== String(currentUserId) &&
+          String(member.id) !== String(activeGroup.createdBy)
+            ? '<button class="text-button danger" type="button" data-remove-member="' +
+              esc(member.id) +
+              '" aria-label="Remove ' +
+              esc(member.fullName) +
+              '">Remove</button>'
+            : "") +
+          "</div>",
+      )
+      .join("");
+  }
+
+  function switchTab(name) {
+    tabs.forEach(({ name: tabName, button, panel }) => {
+      const selected = name === tabName;
+      button.classList.toggle("active", selected);
+      button.setAttribute("aria-selected", String(selected));
+      panel.hidden = !selected;
+    });
+  }
+
+  async function loadGroups() {
+    try {
+      const result = await groupsRequest();
+      groups = (result.groups || []).map(withLocalPhoto);
+      renderMyGroups();
+      return true;
+    } catch (error) {
+      myGroupsContainer.innerHTML =
+        '<p class="empty-state" role="alert">' + esc(error.message) + "</p>";
+      return false;
+    }
+  }
+
+  async function loadDiscoverGroups() {
+    const requestId = ++discoverRequestId;
+    const search = discoverSearchInput.value.trim();
+    renderDiscoverGroups([], true);
+    try {
+      const result = await groupsRequest(
+        "/discover?search=" + encodeURIComponent(search),
+      );
+      if (requestId !== discoverRequestId) return;
+      const memberIds = new Set(groups.map((group) => String(group.id)));
+      const discoverable = (result.groups || [])
+        .filter(
+          (group) =>
+            group.type === "Course Community" &&
+            !memberIds.has(String(group.id)),
+        )
+        .map(withLocalPhoto);
+      renderDiscoverGroups(discoverable, false);
+    } catch (error) {
+      if (requestId !== discoverRequestId) return;
+      discoverContainer.innerHTML =
+        '<p class="empty-state" role="alert">' + esc(error.message) + "</p>";
+    }
+  }
+
+  async function loadStudents() {
+    try {
+      const result = await groupsRequest("/students/search");
+      studentsForGroups = result.students || [];
+      studentsError = "";
+    } catch (error) {
+      studentsForGroups = [];
+      studentsError = "Unable to load students: " + error.message;
+    }
+    if (activeGroup) renderGroup();
+  }
+
+  async function openGroup(id) {
+    const requestId = ++openRequestId;
+    activeGroup = null;
+    document.getElementById("group-info").hidden = true;
+    document
+      .getElementById("group-info-toggle")
+      .setAttribute("aria-expanded", "false");
+    document.getElementById("group-chat").classList.remove("info-open");
+    try {
+      const [details, messageResult] = await Promise.all([
+        groupsRequest("/" + encodeURIComponent(id)),
+        groupsRequest("/" + encodeURIComponent(id) + "/messages"),
+      ]);
+      if (requestId !== openRequestId) return;
+      activeGroup = withLocalPhoto({
+        ...details.group,
+        members: details.members || [],
+        messages: messageResult.messages || [],
+      });
+      activeGroup.unreadCount = 0;
+      const info = document.getElementById("group-info");
+      info.hidden = true;
+      document
+        .getElementById("group-info-toggle")
+        .setAttribute("aria-expanded", "false");
+      document.getElementById("group-chat").classList.remove("info-open");
+      groups = groups.map((group) =>
+        String(group.id) === String(activeGroup.id)
+          ? { ...group, ...activeGroup }
+          : group,
+      );
+      document.getElementById("group-chat").hidden = false;
+      layout.classList.add("has-selected-group", "mobile-chat-open");
+      renderGroup();
+      renderMyGroups();
+      try {
+        await groupsRequest(
+          "/" + encodeURIComponent(id) + "/messages/read",
+          { method: "PUT" },
+        );
+      } catch (error) {
+        alert(error.message);
+      }
+    } catch (error) {
+      if (requestId !== openRequestId) return;
+      document.getElementById("group-chat").hidden = false;
+      document.getElementById("group-messages").innerHTML =
+        '<p class="empty-state chat-empty" role="alert">' +
+        esc(error.message) +
+        "</p>";
+      layout.classList.add("has-selected-group", "mobile-chat-open");
+    }
+  }
+
+  myGroupsContainer.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-group]");
+    if (button) openGroup(button.dataset.group);
+  });
+
+  discoverContainer.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-join-group]");
+    if (!button) return;
+    const id = button.dataset.joinGroup;
+    button.disabled = true;
+    button.textContent = "Joining...";
+    try {
+      await groupsRequest("/" + encodeURIComponent(id) + "/join", {
+        method: "POST",
+      });
+      const loaded = await loadGroups();
+      await loadDiscoverGroups();
+      if (loaded) {
+        switchTab("my-groups");
+        await openGroup(id);
+      }
+    } catch (error) {
+      alert(error.message);
+      button.disabled = false;
+      button.textContent = "Join";
+    }
+  });
+
+  searchInput.addEventListener("input", renderMyGroups);
+  discoverSearchInput.addEventListener("input", () => {
+    window.clearTimeout(discoverTimer);
+    discoverTimer = window.setTimeout(loadDiscoverGroups, 250);
+  });
+  tabs.forEach(({ name, button }, index) => {
+    button.addEventListener("click", () => {
+      switchTab(name);
+      if (name === "discover") loadDiscoverGroups();
+    });
+    button.addEventListener("keydown", (event) => {
+      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+      event.preventDefault();
+      const next = tabs[(index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length];
+      next.button.focus();
+      next.button.click();
+    });
+  });
+
+  document.getElementById("group-form").onsubmit = async (event) => {
+    event.preventDefault();
+    if (!activeGroup) return;
+    const input = document.getElementById("group-input");
+    const content = input.value.trim();
+    if (!content) return;
+    const submit = event.submitter;
+    if (submit) submit.disabled = true;
+    try {
+      const result = await groupsRequest(
+        "/" + encodeURIComponent(activeGroup.id) + "/messages",
+        { method: "POST", body: JSON.stringify({ content }) },
+      );
+      activeGroup.messages.push(result.message);
+      activeGroup.latestMessage = result.message.content;
+      activeGroup.latestMessageAt = result.message.createdAt;
+      input.value = "";
+      renderGroup();
+      renderMyGroups();
+    } catch (error) {
+      alert(error.message);
+    } finally {
+      if (submit) submit.disabled = false;
+    }
+  };
+
+  document.getElementById("group-info-toggle").onclick = (event) => {
+    const info = document.getElementById("group-info");
+    info.hidden = !info.hidden;
+    event.currentTarget.setAttribute("aria-expanded", String(!info.hidden));
+    document.getElementById("group-chat").classList.toggle("info-open", !info.hidden);
+  };
+  document.getElementById("group-back").onclick = () => {
+    layout.classList.remove("mobile-chat-open");
+  };
+
+  document.getElementById("group-save-info").onclick = async () => {
+    if (!activeGroup || activeGroup.currentUserRole !== "admin") return;
+    const name = document.getElementById("group-edit-name").value.trim();
+    const description = document.getElementById("group-edit-description").value.trim();
+    try {
+      const result = await groupsRequest("/" + encodeURIComponent(activeGroup.id), {
+        method: "PUT",
+        body: JSON.stringify({
+          name,
+          description,
+          course: activeGroup.course,
+          type: activeGroup.type,
+        }),
+      });
+      activeGroup = withLocalPhoto({
+        ...result.group,
+        members: result.members || activeGroup.members,
+        messages: activeGroup.messages,
+      });
+      groups = groups.map((group) =>
+        String(group.id) === String(activeGroup.id)
+          ? { ...group, ...activeGroup }
+          : group,
+      );
+      renderGroup();
+      renderMyGroups();
+    } catch (error) {
+      alert(error.message);
+    }
+  };
+
+  document.getElementById("group-photo-input").onchange = () => {
+    if (!activeGroup || activeGroup.currentUserRole !== "admin") return;
+    const input = document.getElementById("group-photo-input");
+    const file = input.files[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/") || file.size > 2 * 1024 * 1024) {
+      input.value = "";
+      alert("Please choose an image smaller than 2 MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      groupPhotos[activeGroup.id] = reader.result;
+      try {
+        saveGroupPhotos();
+        activeGroup.photo = reader.result;
+        groups = groups.map((group) =>
+          String(group.id) === String(activeGroup.id)
+            ? { ...group, photo: reader.result }
+            : group,
+        );
+        renderGroup();
+        renderMyGroups();
+      } catch (error) {
+        alert("Unable to save the group photo in this browser.");
+      }
+    };
+    reader.onerror = () => alert("Unable to read the selected group photo.");
+    reader.readAsDataURL(file);
+  };
+
+  document.getElementById("group-add-member-button").onclick = async () => {
+    if (!activeGroup || activeGroup.currentUserRole !== "admin") return;
+    const userId = Number(document.getElementById("group-add-member").value);
+    if (!Number.isInteger(userId) || userId <= 0) return;
+    try {
+      await groupsRequest("/" + encodeURIComponent(activeGroup.id) + "/members", {
+        method: "POST",
+        body: JSON.stringify({ userId }),
+      });
+      await openGroup(activeGroup.id);
+      await loadGroups();
+    } catch (error) {
+      alert(error.message);
+    }
+  };
+
+  document.getElementById("group-leave").onclick = async () => {
+    if (!activeGroup) return;
+    try {
+      await groupsRequest("/" + encodeURIComponent(activeGroup.id) + "/leave", {
+        method: "POST",
+      });
+      activeGroup = null;
+      document.getElementById("group-chat").hidden = true;
+      layout.classList.remove("has-selected-group", "mobile-chat-open", "info-open");
+      await loadGroups();
+      await loadDiscoverGroups();
+    } catch (error) {
+      alert(error.message);
+    }
+  };
+
+  document.getElementById("member-list").onclick = async (event) => {
+    const button = event.target.closest("[data-remove-member]");
+    if (!button || !activeGroup || activeGroup.currentUserRole !== "admin") return;
+    try {
+      await groupsRequest(
+        "/" +
+          encodeURIComponent(activeGroup.id) +
+          "/members/" +
+          encodeURIComponent(button.dataset.removeMember),
+        { method: "DELETE" },
+      );
+      await openGroup(activeGroup.id);
+      await loadGroups();
+    } catch (error) {
+      alert(error.message);
+    }
+  };
+
+  document.getElementById("group-create-form").onsubmit = async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const submit = form.querySelector('[type="submit"]');
+    submit.disabled = true;
+    try {
+      const result = await groupsRequest("", {
+        method: "POST",
+        body: JSON.stringify({
+          name: document.getElementById("group-title").value.trim(),
+          course: document.getElementById("group-course").value.trim(),
+          description: document.getElementById("group-description-input").value.trim(),
+          type: document.getElementById("group-type").value,
+        }),
+      });
+      form.reset();
+      document.getElementById("group-modal").hidden = true;
+      await loadGroups();
+      switchTab("my-groups");
+      await openGroup(result.group.id);
+    } catch (error) {
+      alert(error.message);
+    } finally {
+      submit.disabled = false;
+    }
+  };
+
+  Promise.all([loadGroups(), loadStudents()]);
+}
+
+function setupGroupsV2Legacy() {
+  if (document.body.dataset.page !== "groups") return;
+
   const photoStorageKey = userKey("campusplan-group-photos");
   let groupPhotos = {};
   let groups = [];
